@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     ReactFlow,
     Background,
     Controls,
+    MiniMap,
     useNodesState,
     useEdgesState,
     type Node,
     type Edge,
+    type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,8 @@ export function DjSetEditorPage() {
     const { set, processing } = dj;
     const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const instanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
+    const prevCount = useRef(set.order.length);
 
     // Each node with a query gets a sequential slot number — matching exactly how
     // processSet numbers the downloaded files, so the sequence is visible up front.
@@ -71,6 +75,18 @@ export function DjSetEditorPage() {
         setRfNodes(nodes);
         setRfEdges(edges);
     }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, setRfNodes, setRfEdges]);
+
+    // When a node is added, pan the canvas to it (keeping zoom) so it's always
+    // visible — otherwise new nodes land below the viewport and look like nothing
+    // happened.
+    useEffect(() => {
+        const instance = instanceRef.current;
+        if (instance && set.order.length > prevCount.current) {
+            const lastIndex = set.order.length - 1;
+            instance.setCenter(160, lastIndex * NODE_GAP + 80, { zoom: 1, duration: 350 });
+        }
+        prevCount.current = set.order.length;
+    }, [set.order.length]);
 
     // After a drag, re-derive the play order from the vertical position of nodes.
     const onNodeDragStop = useCallback(() => {
@@ -153,6 +169,7 @@ export function DjSetEditorPage() {
                     nodes={rfNodes}
                     edges={rfEdges}
                     nodeTypes={nodeTypes}
+                    onInit={(instance) => { instanceRef.current = instance; }}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeDragStop={onNodeDragStop}
@@ -164,6 +181,7 @@ export function DjSetEditorPage() {
                 >
                     <Background />
                     <Controls showInteractive={false} />
+                    <MiniMap pannable zoomable />
                 </ReactFlow>
             </div>
         </div>
