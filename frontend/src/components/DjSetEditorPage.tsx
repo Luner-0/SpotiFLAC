@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ReactFlow,
     Background,
-    Controls,
     MiniMap,
     useNodesState,
     useEdgesState,
@@ -44,6 +43,17 @@ export function DjSetEditorPage() {
     const instanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
     const prevCount = useRef(set.order.length);
     const didFit = useRef(false);
+
+    // Track the app's light/dark mode so the React Flow canvas widgets match it.
+    const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+    useEffect(() => {
+        const root = document.documentElement;
+        const update = () => setIsDark(root.classList.contains("dark"));
+        const observer = new MutationObserver(update);
+        observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+        update();
+        return () => observer.disconnect();
+    }, []);
 
     // Each node with a query gets a sequential slot number — matching exactly how
     // processSet numbers the downloaded files, so the sequence is visible up front.
@@ -248,6 +258,7 @@ export function DjSetEditorPage() {
                     nodes={rfNodes}
                     edges={rfEdges}
                     nodeTypes={nodeTypes}
+                    colorMode={isDark ? "dark" : "light"}
                     onInit={(instance) => { instanceRef.current = instance; }}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
@@ -256,9 +267,15 @@ export function DjSetEditorPage() {
                     minZoom={0.3}
                     proOptions={{ hideAttribution: false }}
                 >
-                    <Background />
-                    <Controls showInteractive={false} />
-                    <MiniMap pannable zoomable />
+                    <Background color={isDark ? "#3f3f46" : "#d4d4d8"} />
+                    <MiniMap
+                        pannable
+                        zoomable
+                        style={{ backgroundColor: "var(--card)" }}
+                        maskColor={isDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)"}
+                        nodeColor={isDark ? "#52525b" : "#cbd5e1"}
+                        nodeStrokeColor="transparent"
+                    />
                 </ReactFlow>
             </div>
         </div>
