@@ -25,10 +25,10 @@ import {
 import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
-import { songCount as countSongs, camelotRelation } from "@/lib/djset";
+import { songCount as countSongs, camelotRelation, NODE_LAYOUT_GAP } from "@/lib/djset";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
 
-const NODE_GAP = 190;
+const NODE_GAP = NODE_LAYOUT_GAP;
 const nodeTypes = { song: SongNode };
 
 export function DjSetEditorPage() {
@@ -74,7 +74,7 @@ export function DjSetEditorPage() {
             return {
                 id,
                 type: "song",
-                position: { x: 0, y: i * NODE_GAP },
+                position: { x: set.nodes[id]?.x ?? 0, y: set.nodes[id]?.y ?? i * NODE_GAP },
                 data: data as unknown as Record<string, unknown>,
             };
         });
@@ -119,20 +119,17 @@ export function DjSetEditorPage() {
     useEffect(() => {
         const instance = instanceRef.current;
         if (instance && set.order.length > prevCount.current) {
-            const lastIndex = set.order.length - 1;
-            instance.setCenter(160, lastIndex * NODE_GAP + 80, { zoom: 1, duration: 350 });
+            const last = set.nodes[set.order[set.order.length - 1]];
+            instance.setCenter((last?.x ?? 0) + 160, (last?.y ?? 0) + 80, { zoom: 1, duration: 350 });
         }
         prevCount.current = set.order.length;
     }, [set.order.length]);
 
-    // After a drag, re-derive the play order from the vertical position of nodes.
+    // Persist canvas positions after a drag so the manual layout is preserved
+    // across typing and adding nodes. (Play order is controlled by the ▲▼ arrows.)
     const onNodeDragStop = useCallback(() => {
-        const sorted = [...rfNodes].sort((a, b) => a.position.y - b.position.y);
-        const newOrder = sorted.map((n) => n.id);
-        if (newOrder.join("|") !== set.order.join("|")) {
-            dj.reorder(newOrder);
-        }
-    }, [rfNodes, set.order, dj]);
+        dj.persistPositions(rfNodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y })));
+    }, [rfNodes, dj]);
 
     const songCount = Object.values(positions).filter((p) => p > 0).length;
 

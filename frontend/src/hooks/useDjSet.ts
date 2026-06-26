@@ -20,6 +20,7 @@ import {
     indexedName,
     loadDjSet,
     loadLibrary,
+    NODE_LAYOUT_GAP,
     saveDjSet,
     saveToLibrary,
     songCount,
@@ -183,8 +184,30 @@ export function useDjSet() {
     }, []);
 
     const addNode = useCallback((query = "") => {
-        const node = createNode(query);
-        setSet((prev) => ({ ...prev, order: [...prev.order, node.id], nodes: { ...prev.nodes, [node.id]: node } }));
+        setSet((prev) => {
+            const node = createNode(query);
+            const ys = prev.order.map((id) => prev.nodes[id]?.y ?? 0);
+            const maxY = ys.length ? Math.max(...ys) : -NODE_LAYOUT_GAP;
+            node.x = 0;
+            node.y = maxY + NODE_LAYOUT_GAP;
+            return { ...prev, order: [...prev.order, node.id], nodes: { ...prev.nodes, [node.id]: node } };
+        });
+    }, []);
+
+    // Persist canvas positions after a drag so the manual layout survives edits.
+    const persistPositions = useCallback((positions: Array<{ id: string; x: number; y: number }>) => {
+        setSet((prev) => {
+            const nodes = { ...prev.nodes };
+            let changed = false;
+            for (const p of positions) {
+                const node = nodes[p.id];
+                if (node && (node.x !== p.x || node.y !== p.y)) {
+                    nodes[p.id] = { ...node, x: p.x, y: p.y };
+                    changed = true;
+                }
+            }
+            return changed ? { ...prev, nodes } : prev;
+        });
     }, []);
 
     const removeNode = useCallback((id: string) => {
@@ -571,6 +594,7 @@ export function useDjSet() {
         updateQuery,
         reorder,
         moveNode,
+        persistPositions,
         setName,
         setOutputFolder,
         getSetFolder,

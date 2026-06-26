@@ -46,6 +46,8 @@ export interface DjSetNode {
     error?: string;
     harmonics?: SongHarmonics;
     harmonicsStatus?: HarmonicsStatus;
+    x?: number; // canvas position (preserved across edits)
+    y?: number;
 }
 
 export interface DjSet {
@@ -61,6 +63,9 @@ export interface DjSet {
 // is expanded to the zero-padded position by the Go backend (see filename.go).
 export const DJ_FILENAME_FORMAT = "{track}. {title} - {artist}";
 
+// Vertical spacing used for the default (auto) node layout.
+export const NODE_LAYOUT_GAP = 190;
+
 const STORAGE_KEY = "spotiflac_dj_set";
 
 export function createNode(query = ""): DjSetNode {
@@ -73,6 +78,8 @@ export function createNode(query = ""): DjSetNode {
 
 export function createEmptySet(outputFolder: string): DjSet {
     const first = createNode();
+    first.x = 0;
+    first.y = 0;
     return {
         id: crypto.randomUUID(),
         name: "My DJ Set",
@@ -209,6 +216,13 @@ export function loadDjSet(): DjSet | null {
             return null;
         }
         if (!parsed.id) parsed.id = crypto.randomUUID(); // backfill pre-library sets
+        // Give pre-positions sets a default vertical layout once.
+        parsed.order.forEach((id, i) => {
+            const node = parsed.nodes[id];
+            if (!node) return;
+            if (typeof node.x !== "number") node.x = 0;
+            if (typeof node.y !== "number") node.y = i * NODE_LAYOUT_GAP;
+        });
         // Reset in-progress statuses that can't survive a restart so a node saved
         // mid-resolve/download doesn't come back stuck in a spinner state.
         for (const id of parsed.order) {
@@ -296,15 +310,19 @@ export function buildSetFromFolder(folder: string, files: Array<{ path: string }
 
     const order: string[] = [];
     const nodes: Record<string, DjSetNode> = {};
-    for (const entry of entries) {
+    entries.forEach((entry, i) => {
         const core = stripIndexPrefix(entry.nameNoExt) || entry.nameNoExt;
         const node = createNode(core);
         node.filePath = entry.path;
+        node.x = 0;
+        node.y = i * NODE_LAYOUT_GAP;
         nodes[node.id] = node;
         order.push(node.id);
-    }
+    });
     if (order.length === 0) {
         const empty = createNode();
+        empty.x = 0;
+        empty.y = 0;
         nodes[empty.id] = empty;
         order.push(empty.id);
     }
