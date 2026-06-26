@@ -25,7 +25,7 @@ import {
 import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
-import { songCount as countSongs } from "@/lib/djset";
+import { songCount as countSongs, camelotCompatible } from "@/lib/djset";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
 
 const NODE_GAP = 190;
@@ -80,7 +80,21 @@ export function DjSetEditorPage() {
         });
         const edges: Edge[] = [];
         for (let i = 0; i < set.order.length - 1; i += 1) {
-            edges.push({ id: `${set.order[i]}->${set.order[i + 1]}`, source: set.order[i], target: set.order[i + 1] });
+            const source = set.order[i];
+            const target = set.order[i + 1];
+            const edge: Edge = { id: `${source}->${target}`, source, target };
+            // Label the connector with harmonic compatibility when both tracks
+            // have a Camelot code.
+            const compatible = camelotCompatible(set.nodes[source]?.harmonics?.camelot, set.nodes[target]?.harmonics?.camelot);
+            if (compatible !== null) {
+                edge.label = compatible ? "✓ in key" : "⚠ clash";
+                edge.labelStyle = { fill: compatible ? "#15803d" : "#b91c1c", fontWeight: 600, fontSize: 11 };
+                edge.labelBgStyle = { fill: compatible ? "#dcfce7" : "#fee2e2" };
+                edge.labelBgPadding = [6, 3];
+                edge.labelBgBorderRadius = 6;
+                edge.style = { stroke: compatible ? "#22c55e" : "#ef4444", strokeWidth: 2 };
+            }
+            edges.push(edge);
         }
         setRfNodes(nodes);
         setRfEdges(edges);

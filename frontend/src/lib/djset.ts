@@ -93,6 +93,50 @@ export function parseIndexPrefix(nameWithoutExt: string): number | null {
     return match ? parseInt(match[1], 10) : null;
 }
 
+// --- Camelot wheel: colors + harmonic compatibility ---
+
+// Colors approximating the Camelot wheel. Each wheel position (1–12) has a hue;
+// the "B" (major) ring is saturated, the "A" (minor) ring is a lighter pastel.
+const CAMELOT_B_COLORS: Record<number, string> = {
+    1: "#3FD9A6", 2: "#3CCB5C", 3: "#8FD94A", 4: "#F2C23D", 5: "#F2933D", 6: "#F26B6B",
+    7: "#F25C9C", 8: "#E86FC6", 9: "#B57BE6", 10: "#7C84E8", 11: "#4FA6F2", 12: "#3DD3E6",
+};
+const CAMELOT_A_COLORS: Record<number, string> = {
+    1: "#A8ECD6", 2: "#A8E6B8", 3: "#CDEDA6", 4: "#F7E2A6", 5: "#F7CFA6", 6: "#F7B8B8",
+    7: "#F7B3D1", 8: "#F3BCE3", 9: "#DEC0F2", 10: "#C0C4F2", 11: "#B0D4F7", 12: "#AEEAF2",
+};
+
+export function parseCamelot(code?: string): { num: number; letter: "A" | "B" } | null {
+    if (!code) return null;
+    const match = code.trim().toUpperCase().match(/^(\d{1,2})([AB])$/);
+    if (!match) return null;
+    const num = parseInt(match[1], 10);
+    if (num < 1 || num > 12) return null;
+    return { num, letter: match[2] as "A" | "B" };
+}
+
+export function camelotColor(code?: string): { bg: string; fg: string } | null {
+    const parsed = parseCamelot(code);
+    if (!parsed) return null;
+    const bg = parsed.letter === "A" ? CAMELOT_A_COLORS[parsed.num] : CAMELOT_B_COLORS[parsed.num];
+    return { bg, fg: "#0b0b0c" };
+}
+
+// Harmonic compatibility per the Camelot rules: same code, relative major/minor
+// (same number, other letter), or an adjacent number on the same letter (with
+// 12↔1 wrap). Returns null if either code is unknown.
+export function camelotCompatible(a?: string, b?: string): boolean | null {
+    const pa = parseCamelot(a);
+    const pb = parseCamelot(b);
+    if (!pa || !pb) return null;
+    if (pa.num === pb.num) return true; // same key or relative major/minor
+    if (pa.letter === pb.letter) {
+        const diff = Math.abs(pa.num - pb.num);
+        if (Math.min(diff, 12 - diff) === 1) return true; // adjacent on the wheel
+    }
+    return false;
+}
+
 // Port of backend SanitizeFilename (backend/filename.go) so the names we
 // compute on the frontend match the files the backend actually writes.
 export function sanitizeFilename(name: string): string {

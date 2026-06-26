@@ -21,7 +21,7 @@ import {
     AlertCircle,
     Replace,
 } from "lucide-react";
-import type { DjSetNode, NodeStatus, ResolvedTrack } from "@/lib/djset";
+import { camelotColor, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
 
 export interface SongNodeData {
     node: DjSetNode;
@@ -150,9 +150,18 @@ export function SongNode(props: NodeProps) {
                             </span>
                         ) : node.harmonics ? (
                             <>
-                                {node.harmonics.camelot && (
-                                    <Badge variant="default" className="font-mono" title="Camelot code">{node.harmonics.camelot}</Badge>
-                                )}
+                                {node.harmonics.camelot && (() => {
+                                    const color = camelotColor(node.harmonics.camelot);
+                                    return (
+                                        <Badge
+                                            className="font-mono border-transparent"
+                                            style={color ? { backgroundColor: color.bg, color: color.fg } : undefined}
+                                            title="Camelot code"
+                                        >
+                                            {node.harmonics.camelot}
+                                        </Badge>
+                                    );
+                                })()}
                                 {node.harmonics.key && (
                                     <Badge variant="outline" title="Musical key">{node.harmonics.key}</Badge>
                                 )}
