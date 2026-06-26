@@ -35,8 +35,8 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:     "SpotiFLAC",
-		Width:     1024,
-		Height:    600,
+		Width:     1280,
+		Height:    820,
 		MinWidth:  1024,
 		MinHeight: 600,
 		Frameless: true,

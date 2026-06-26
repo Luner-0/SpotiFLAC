@@ -265,7 +265,7 @@ export function DjSetEditorPage() {
                     onNodeDragStop={onNodeDragStop}
                     nodesConnectable={false}
                     minZoom={0.3}
-                    proOptions={{ hideAttribution: false }}
+                    proOptions={{ hideAttribution: true }}
                 >
                     <Background color={isDark ? "#3f3f46" : "#d4d4d8"} />
                     <MiniMap

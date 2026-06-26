@@ -241,35 +241,23 @@
   @apply text-blue-400;
 }
 
-/* Custom Scrollbar - mengikuti primary color theme */
+/* Scrollbars hidden by default (content still scrolls). Opt back in with .custom-scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--secondary);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--primary);
-  border-radius: 4px;
-  opacity: 0.7;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
-  filter: brightness(1.2);
-}
-
-/* Firefox scrollbar support */
+/* Firefox: hide by default */
 * {
+  scrollbar-width: none;
+}
+
+/* Custom scrollbar class untuk komponen tertentu */
+.custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--primary) var(--secondary);
 }
 
-/* Custom scrollbar class untuk komponen tertentu */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
