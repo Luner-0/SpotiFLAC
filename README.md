@@ -110,7 +110,9 @@ The software is provided "as is", without warranty of any kind. The author assum
 
 ## API Credits
 
-[MusicBrainz](https://musicbrainz.org) · [LRCLIB](https://lrclib.net) · [Songlink/Odesli](https://song.link) · [Songstats](https://songstats.com) · [hifi-api](https://github.com/binimum/hifi-api) · [Qobuz-DL](https://github.com/QobuzDL/Qobuz-DL)
+[MusicBrainz](https://musicbrainz.org) · [LRCLIB](https://lrclib.net) · [Songlink/Odesli](https://song.link) · [Songstats](https://songstats.com) · [hifi-api](https://github.com/binimum/hifi-api) · [Qobuz-DL](https://github.com/QobuzDL/Qobuz-DL) · [GetSongBPM](https://getsongbpm.com)
+
+BPM, key, and Camelot data in the DJ Set Editor is powered by [GetSongBPM](https://getsongbpm.com).
 
 > [!TIP]
 >

@@ -456,8 +456,15 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 getSongBpmApiKey: e.target.value.trim(),
             }))} placeholder="Paste your getsongbpm.com API key"/>
                 <p className="text-xs text-muted-foreground">
-                  Enables key / BPM / Camelot in the DJ Set Editor. Get a free key at getsongbpm.com/api.
+                  Enables key / BPM / Camelot in the DJ Set Editor. Data and BPM/key powered by{" "}
+                  <button type="button" onClick={() => openExternal("https://getsongbpm.com")} className="inline-flex cursor-pointer items-center gap-0.5 text-foreground hover:underline">
+                    GetSongBPM<ExternalLink className="h-3 w-3"/>
+                  </button>.
                 </p>
+                <button type="button" onClick={() => openExternal("https://getsongbpm.com/api")} className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline">
+                  Get a free API key
+                  <ExternalLink className="h-3 w-3"/>
+                </button>
               </div>
 
               <div className="flex items-center gap-3 pt-2">
