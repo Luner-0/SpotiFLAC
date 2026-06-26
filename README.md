@@ -14,6 +14,22 @@ Get Spotify tracks in true FLAC from Tidal, Qobuz & Amazon Music — no account 
 
 ![Image](https://github.com/user-attachments/assets/c2624ca5-8569-49f0-950e-4410b523cea1)
 
+## 🎧 DJ Set Editor
+
+> **Plan your set, download it in order, mix it in key.**
+
+This fork extends SpotiFLAC with a **DJ Set Editor** — a visual workflow that takes you from "tracks in my head" to a numbered, key-tagged, rekordbox-ready folder in minutes.
+
+- **Plan visually.** Lay your set out as a flowchart of song nodes and drag them into your play order.
+- **Fetch the whole set.** Each node searches and downloads its track in true lossless (Tidal / Qobuz / Amazon). Already have it? It just renumbers the existing file instead of re-downloading.
+- **rekordbox-ready ordering.** Every track is saved with an index prefix (`01.`, `02.`, …) matching your sequence, so the folder lands in rekordbox already sorted — no re-searching, no manual reordering.
+- **Mix in key.** Each track shows its **musical key, BPM, and Camelot code** (powered by [GetSongBPM](https://getsongbpm.com)) so you can plan harmonic transitions at a glance.
+- **Set library + import.** Save and reload multiple sets, or import an existing folder of numbered tracks back into the editor to keep working on it.
+
+**Mission:** take the busywork out of set prep. Crate-digging and harmonic planning should be the fun part — numbering files, re-searching tracks in rekordbox, and hunting for keys shouldn't.
+
+> Based on [SpotiFLAC](https://github.com/spotbye/SpotiFLAC) by afkarxyz. All original SpotiFLAC functionality is unchanged — the DJ Set Editor lives under its own icon in the sidebar.
+
 ## Other projects
 
 ### [SpotiFLAC Next](https://github.com/spotbye/SpotiFLAC-Next)
