@@ -1972,6 +1972,13 @@ func (a *App) ResolveMedia(url string) (*backend.ExternalMedia, error) {
 	return backend.ResolveMedia(url)
 }
 
+func (a *App) ResolvePlaylist(url string) (*backend.ExternalPlaylist, error) {
+	if !backend.IsYtDlpInstalled() {
+		return nil, fmt.Errorf("yt-dlp is not installed")
+	}
+	return backend.ResolvePlaylist(url)
+}
+
 type DownloadMediaRequest struct {
 	URL         string `json:"url"`
 	OutputDir   string `json:"output_dir"`

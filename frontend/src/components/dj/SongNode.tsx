@@ -8,9 +8,18 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Search,
     Trash2,
@@ -22,8 +31,9 @@ import {
     Replace,
     Play,
     Pause,
+    Pencil,
 } from "lucide-react";
-import { camelotColor, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
+import { camelotColor, KEY_OPTIONS, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
 import { providerLabel } from "@/lib/media";
 
 export interface SongNodeData {
@@ -39,6 +49,7 @@ export interface SongNodeData {
     onSearch: (query: string) => Promise<ResolvedTrack[]>;
     onPick: (id: string, track: ResolvedTrack) => void;
     onPreview: (node: DjSetNode) => void;
+    onEditHarmonics: (id: string, h: { camelot?: string; bpm?: number }) => void;
     previewPlayingId: string | null;
     previewLoadingId: string | null;
     [key: string]: unknown;
@@ -73,6 +84,9 @@ export function SongNode(props: NodeProps) {
     const [pickerOpen, setPickerOpen] = useState(false);
     const [results, setResults] = useState<ResolvedTrack[]>([]);
     const [searching, setSearching] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editCamelot, setEditCamelot] = useState("none");
+    const [editBpm, setEditBpm] = useState("");
 
     const busy = processing || node.status === "resolving" || node.status === "downloading" || node.status === "renaming";
     const meta = STATUS_META[node.status];
@@ -90,6 +104,20 @@ export function SongNode(props: NodeProps) {
         } finally {
             setSearching(false);
         }
+    };
+
+    const openEdit = () => {
+        setEditCamelot(node.harmonics?.camelot ?? "none");
+        setEditBpm(node.harmonics?.bpm ? String(node.harmonics.bpm) : "");
+        setEditOpen(true);
+    };
+
+    const saveEdit = () => {
+        data.onEditHarmonics(node.id, {
+            camelot: editCamelot === "none" ? undefined : editCamelot,
+            bpm: editBpm.trim() ? Number(editBpm) : undefined,
+        });
+        setEditOpen(false);
     };
 
     return (
@@ -171,7 +199,7 @@ export function SongNode(props: NodeProps) {
                     </div>
                 )}
 
-                {node.track && (node.harmonics || node.harmonicsStatus) && (
+                {node.track && (
                     <div className="flex flex-wrap items-center gap-1.5">
                         {node.harmonicsStatus === "loading" ? (
                             <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -198,9 +226,20 @@ export function SongNode(props: NodeProps) {
                                     <Badge variant="secondary" title="Tempo">{node.harmonics.bpm} BPM</Badge>
                                 ) : null}
                             </>
-                        ) : node.harmonicsStatus === "none" ? (
+                        ) : (
                             <span className="text-xs text-muted-foreground">No key / BPM data</span>
-                        ) : null}
+                        )}
+                        {node.harmonicsStatus !== "loading" && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-auto h-6 w-6 shrink-0 nodrag text-muted-foreground"
+                                onClick={openEdit}
+                                title="Edit key / BPM"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
                     </div>
                 )}
 
@@ -247,6 +286,54 @@ export function SongNode(props: NodeProps) {
                             ))
                         )}
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Edit key / BPM</DialogTitle>
+                        <DialogDescription>
+                            Correct or fill in the harmonic data yourself. The Camelot code and key stay in sync.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-1">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Key</Label>
+                            <Select value={editCamelot} onValueChange={setEditCamelot}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a key" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-72">
+                                    <SelectItem value="none">No key</SelectItem>
+                                    {KEY_OPTIONS.map((o) => (
+                                        <SelectItem key={o.camelot} value={o.camelot}>
+                                            <span className="font-mono">{o.camelot}</span>
+                                            <span className="text-muted-foreground"> · {o.key}</span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">BPM</Label>
+                            <Input
+                                type="number"
+                                inputMode="numeric"
+                                min={1}
+                                placeholder="e.g. 124"
+                                value={editBpm}
+                                onChange={(e) => setEditBpm(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveEdit();
+                                }}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                        <Button onClick={saveEdit}>Save</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

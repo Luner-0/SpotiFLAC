@@ -21,7 +21,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
+import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X, ListMusic } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
 import { useDjPreview } from "@/hooks/useDjPreview";
@@ -86,6 +86,7 @@ export function DjSetEditorPage() {
                 onSearch: dj.searchTrack,
                 onPick: dj.pickMatch,
                 onPreview,
+                onEditHarmonics: dj.setHarmonics,
                 previewPlayingId: preview.playingId,
                 previewLoadingId: preview.loadingId,
             };
@@ -119,7 +120,7 @@ export function DjSetEditorPage() {
         }
         setRfNodes(nodes);
         setRfEdges(edges);
-    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, onPreview, preview.playingId, preview.loadingId, setRfNodes, setRfEdges]);
+    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, dj.setHarmonics, onPreview, preview.playingId, preview.loadingId, setRfNodes, setRfEdges]);
 
     // Fit the view once, after the real nodes have actually been loaded into the
     // canvas (fitting while the canvas is still empty leaves nodes off-screen).
@@ -151,6 +152,20 @@ export function DjSetEditorPage() {
 
     const songCount = Object.values(positions).filter((p) => p > 0).length;
 
+    // Paste a SoundCloud / YouTube playlist link to build a set in playlist order.
+    const [playlistUrl, setPlaylistUrl] = useState("");
+    const [importing, setImporting] = useState(false);
+    const importPlaylist = useCallback(async () => {
+        if (!playlistUrl.trim() || importing) return;
+        setImporting(true);
+        try {
+            await dj.importFromPlaylist(playlistUrl.trim());
+            setPlaylistUrl("");
+        } finally {
+            setImporting(false);
+        }
+    }, [playlistUrl, importing, dj]);
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -161,6 +176,24 @@ export function DjSetEditorPage() {
                         index prefix so the folder is pre-sorted for rekordbox.
                     </p>
                 </div>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+                <ListMusic className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <Input
+                    value={playlistUrl}
+                    disabled={processing || importing}
+                    placeholder="Paste a SoundCloud or YouTube playlist link to build a set in its order…"
+                    onChange={(e) => setPlaylistUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") void importPlaylist();
+                    }}
+                    className="h-9 flex-1"
+                />
+                <Button size="sm" disabled={processing || importing || !playlistUrl.trim()} onClick={() => void importPlaylist()}>
+                    {importing ? <Spinner className="h-4 w-4" /> : <ListMusic className="h-4 w-4" />}
+                    Build set
+                </Button>
             </div>
 
             <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">

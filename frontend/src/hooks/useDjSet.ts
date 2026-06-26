@@ -18,6 +18,7 @@ import {
     deleteFromLibrary,
     getLibrarySet,
     indexedName,
+    keyForCamelot,
     loadDjSet,
     loadLibrary,
     NODE_LAYOUT_GAP,
@@ -27,7 +28,7 @@ import {
     stripExtension,
     stripIndexPrefix,
 } from "@/lib/djset";
-import { detectMediaUrl, ResolveMedia, DownloadMedia, ensureYtDlp, IsYtDlpInstalled } from "@/lib/media";
+import { detectMediaUrl, detectPlaylistUrl, ResolveMedia, ResolvePlaylist, DownloadMedia, ensureYtDlp, IsYtDlpInstalled, providerLabel } from "@/lib/media";
 
 // Raw search result shape returned by the Go SearchSpotify binding.
 interface RawSearchResult {
@@ -279,6 +280,7 @@ export function useDjSet() {
     // Fetch key/BPM/Camelot for a node's track from GetSongBPM (no-op if the user
     // hasn't set an API key). Runs in the background after a track is resolved.
     const fetchHarmonics = useCallback(async (id: string, track: ResolvedTrack) => {
+        if (setRef.current.nodes[id]?.harmonics?.manual) return; // don't clobber manual edits
         const apiKey = getSettings().getSongBpmApiKey?.trim();
         if (!apiKey) return;
         updateNode(id, { harmonicsStatus: "loading" });
@@ -356,6 +358,18 @@ export function useDjSet() {
         updateNode(id, { status: "resolved", track, filePath: undefined, error: undefined, harmonics: undefined, harmonicsStatus: undefined });
         void fetchHarmonics(id, track);
     }, [updateNode, fetchHarmonics]);
+
+    // Manually set/correct a node's key & BPM. The Camelot code drives the key
+    // name; an empty Camelot + no BPM clears the data back to "none".
+    const setHarmonics = useCallback((id: string, h: { camelot?: string; bpm?: number }) => {
+        const camelot = h.camelot?.trim() || undefined;
+        const bpm = h.bpm && h.bpm > 0 ? Math.round(h.bpm) : undefined;
+        const hasAny = !!camelot || !!bpm;
+        updateNode(id, {
+            harmonics: hasAny ? { camelot, key: keyForCamelot(camelot), bpm, manual: true } : undefined,
+            harmonicsStatus: hasAny ? "done" : "none",
+        });
+    }, [updateNode]);
 
     const resolveAll = useCallback(async () => {
         for (const id of setRef.current.order) {
@@ -627,6 +641,69 @@ export function useDjSet() {
         }
     }, [snapshotCurrent]);
 
+    // Build a brand-new set from a SoundCloud/YouTube playlist URL, preserving the
+    // playlist's track order. Nodes are pre-filled (resolved) from the playlist's
+    // flat metadata so the set appears instantly; harmonics fetch in the background.
+    const importFromPlaylist = useCallback(async (url: string) => {
+        const provider = detectPlaylistUrl(url);
+        if (!provider) {
+            toast.error("Paste a SoundCloud or YouTube playlist link");
+            return;
+        }
+        try {
+            if (!(await IsYtDlpInstalled())) toast.info("Setting up yt-dlp (one-time download)…");
+            if (!(await ensureYtDlp())) {
+                toast.error("yt-dlp is not available");
+                return;
+            }
+            toast.info("Reading playlist…");
+            const playlist = await ResolvePlaylist(url.trim());
+            const entries = playlist.entries ?? [];
+            if (entries.length === 0) {
+                toast.error("No tracks found in that playlist");
+                return;
+            }
+            snapshotCurrent();
+            const base = createEmptySet(getSettings().downloadPath);
+            const order: string[] = [];
+            const nodes: Record<string, DjSetNode> = {};
+            entries.forEach((e, i) => {
+                const node = createNode(e.url);
+                node.x = 0;
+                node.y = i * NODE_LAYOUT_GAP;
+                node.status = "resolved";
+                node.source = provider;
+                node.track = {
+                    spotify_id: "",
+                    name: e.title || e.url,
+                    artists: e.uploader || providerLabel(provider),
+                    album_name: "",
+                    release_date: "",
+                    images: e.thumbnail || "",
+                    duration_ms: Math.round((e.duration || 0) * 1000),
+                    external_url: e.url,
+                };
+                order.push(node.id);
+                nodes[node.id] = node;
+            });
+            const imported: DjSet = {
+                ...base,
+                name: playlist.title?.trim() || "Imported playlist",
+                order,
+                nodes,
+                updatedAt: Date.now(),
+            };
+            setSet(imported);
+            for (const id of order) {
+                const t = nodes[id].track;
+                if (t) void fetchHarmonics(id, t);
+            }
+            toast.success(`Imported ${entries.length} track(s) from "${imported.name}"`);
+        } catch (err) {
+            toast.error(`Failed to import playlist: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }, [snapshotCurrent, fetchHarmonics]);
+
     const clearSet = useCallback(() => {
         setSet(createEmptySet(getSettings().downloadPath));
     }, []);
@@ -640,6 +717,7 @@ export function useDjSet() {
         loadSet,
         deleteSet,
         importFromFolder,
+        importFromPlaylist,
         addNode,
         removeNode,
         updateQuery,
@@ -653,6 +731,7 @@ export function useDjSet() {
         resolveNode,
         resolveAll,
         pickMatch,
+        setHarmonics,
         checkFolder,
         processSet,
         stopProcessing,

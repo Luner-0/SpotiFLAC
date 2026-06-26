@@ -197,6 +197,95 @@ func ResolveMedia(url string) (*ExternalMedia, error) {
 	return &media, nil
 }
 
+// PlaylistEntry is one track in a resolved playlist (flat metadata only).
+type PlaylistEntry struct {
+	Title     string  `json:"title"`
+	Uploader  string  `json:"uploader"`
+	Duration  float64 `json:"duration"`
+	Thumbnail string  `json:"thumbnail"`
+	URL       string  `json:"url"` // resolvable track URL
+}
+
+// ExternalPlaylist is a SoundCloud/YouTube playlist resolved into ordered entries.
+type ExternalPlaylist struct {
+	Title   string          `json:"title"`
+	Entries []PlaylistEntry `json:"entries"`
+}
+
+// flatPlaylistJSON mirrors the shape yt-dlp emits with --flat-playlist.
+type flatPlaylistJSON struct {
+	Title   string `json:"title"`
+	Entries []struct {
+		Title      string  `json:"title"`
+		Uploader   string  `json:"uploader"`
+		Duration   float64 `json:"duration"`
+		URL        string  `json:"url"`
+		WebpageURL string  `json:"webpage_url"`
+		Thumbnail  string  `json:"thumbnail"`
+		Thumbnails []struct {
+			URL string `json:"url"`
+		} `json:"thumbnails"`
+	} `json:"entries"`
+}
+
+// ResolvePlaylist reads a playlist URL and returns its tracks in order. It uses
+// --flat-playlist so it stays fast even for long sets (per-track metadata is
+// fetched later when each node is resolved/processed).
+func ResolvePlaylist(url string) (*ExternalPlaylist, error) {
+	if strings.TrimSpace(url) == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+	bin, err := GetYtDlpPath()
+	if err != nil {
+		return nil, err
+	}
+	if !IsYtDlpInstalled() {
+		return nil, fmt.Errorf("yt-dlp is not installed")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "-J", "--flat-playlist", "--skip-download", "--no-warnings", url)
+	setHideWindow(cmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("yt-dlp could not read that playlist: %s", strings.TrimSpace(stderr.String()))
+	}
+
+	var raw flatPlaylistJSON
+	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse playlist info: %w", err)
+	}
+
+	out := &ExternalPlaylist{Title: strings.TrimSpace(raw.Title)}
+	for _, e := range raw.Entries {
+		link := strings.TrimSpace(e.WebpageURL)
+		if link == "" {
+			link = strings.TrimSpace(e.URL)
+		}
+		if link == "" {
+			continue
+		}
+		thumb := strings.TrimSpace(e.Thumbnail)
+		if thumb == "" && len(e.Thumbnails) > 0 {
+			thumb = strings.TrimSpace(e.Thumbnails[len(e.Thumbnails)-1].URL)
+		}
+		out.Entries = append(out.Entries, PlaylistEntry{
+			Title:     strings.TrimSpace(e.Title),
+			Uploader:  strings.TrimSpace(e.Uploader),
+			Duration:  e.Duration,
+			Thumbnail: thumb,
+			URL:       link,
+		})
+	}
+	if len(out.Entries) == 0 {
+		return nil, fmt.Errorf("no tracks found in that playlist")
+	}
+	return out, nil
+}
+
 // GetMediaStreamURL returns a directly-playable audio stream URL for a media URL
 // (used for in-app preview). Prefers non-HLS audio so the WebView can play it.
 func GetMediaStreamURL(url string) (string, error) {

@@ -22,6 +22,32 @@ export interface SongHarmonics {
     bpm?: number;
     key?: string; // musical key text, e.g. "Gm"
     camelot?: string; // Camelot code, e.g. "6A"
+    manual?: boolean; // true when the user typed/corrected the values themselves
+}
+
+// The 24 keys laid out on the Camelot wheel, used by the manual key editor. The
+// Camelot code is the source of truth (unique per key); `key` is the readable
+// musical name shown alongside it.
+export const KEY_OPTIONS: { camelot: string; key: string }[] = [
+    { camelot: "1A", key: "A♭m" }, { camelot: "1B", key: "B" },
+    { camelot: "2A", key: "E♭m" }, { camelot: "2B", key: "F♯" },
+    { camelot: "3A", key: "B♭m" }, { camelot: "3B", key: "D♭" },
+    { camelot: "4A", key: "Fm" }, { camelot: "4B", key: "A♭" },
+    { camelot: "5A", key: "Cm" }, { camelot: "5B", key: "E♭" },
+    { camelot: "6A", key: "Gm" }, { camelot: "6B", key: "B♭" },
+    { camelot: "7A", key: "Dm" }, { camelot: "7B", key: "F" },
+    { camelot: "8A", key: "Am" }, { camelot: "8B", key: "C" },
+    { camelot: "9A", key: "Em" }, { camelot: "9B", key: "G" },
+    { camelot: "10A", key: "Bm" }, { camelot: "10B", key: "D" },
+    { camelot: "11A", key: "F♯m" }, { camelot: "11B", key: "A" },
+    { camelot: "12A", key: "D♭m" }, { camelot: "12B", key: "E" },
+];
+
+// Look up the readable key name for a Camelot code (e.g. "8A" -> "Am").
+export function keyForCamelot(camelot?: string): string | undefined {
+    if (!camelot) return undefined;
+    const norm = camelot.trim().toUpperCase();
+    return KEY_OPTIONS.find((o) => o.camelot === norm)?.key;
 }
 
 export type HarmonicsStatus = "loading" | "done" | "none";
