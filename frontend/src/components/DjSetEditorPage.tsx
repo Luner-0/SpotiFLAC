@@ -29,6 +29,7 @@ export function DjSetEditorPage() {
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const instanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
     const prevCount = useRef(set.order.length);
+    const didFit = useRef(false);
 
     // Each node with a query gets a sequential slot number — matching exactly how
     // processSet numbers the downloaded files, so the sequence is visible up front.
@@ -76,6 +77,16 @@ export function DjSetEditorPage() {
         setRfEdges(edges);
     }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, setRfNodes, setRfEdges]);
 
+    // Fit the view once, after the real nodes have actually been loaded into the
+    // canvas (fitting while the canvas is still empty leaves nodes off-screen).
+    useEffect(() => {
+        if (didFit.current) return;
+        if (instanceRef.current && rfNodes.length > 0) {
+            instanceRef.current.fitView({ maxZoom: 1 });
+            didFit.current = true;
+        }
+    }, [rfNodes]);
+
     // When a node is added, pan the canvas to it (keeping zoom) so it's always
     // visible — otherwise new nodes land below the viewport and look like nothing
     // happened.
@@ -100,7 +111,7 @@ export function DjSetEditorPage() {
     const songCount = Object.values(positions).filter((p) => p > 0).length;
 
     return (
-        <div className="flex h-full flex-col space-y-4">
+        <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">DJ Set Editor</h1>
@@ -164,7 +175,7 @@ export function DjSetEditorPage() {
                 </div>
             </div>
 
-            <div className="min-h-[400px] flex-1 overflow-hidden rounded-lg border">
+            <div className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded-lg border">
                 <ReactFlow
                     nodes={rfNodes}
                     edges={rfEdges}
@@ -174,8 +185,6 @@ export function DjSetEditorPage() {
                     onEdgesChange={onEdgesChange}
                     onNodeDragStop={onNodeDragStop}
                     nodesConnectable={false}
-                    fitView
-                    fitViewOptions={{ maxZoom: 1 }}
                     minZoom={0.3}
                     proOptions={{ hideAttribution: false }}
                 >
