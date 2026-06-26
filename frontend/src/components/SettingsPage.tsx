@@ -473,6 +473,26 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 </button>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="external-audio-format">SoundCloud / YouTube audio format</Label>
+                <Select value={tempSettings.externalAudioFormat} onValueChange={(value: "mp3" | "opus" | "best") => setTempSettings((prev) => ({
+                ...prev,
+                externalAudioFormat: value,
+            }))}>
+                  <SelectTrigger id="external-audio-format" className="h-9 w-fit min-w-35">
+                    <SelectValue/>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mp3">MP3 (320k)</SelectItem>
+                    <SelectItem value="opus">Opus</SelectItem>
+                    <SelectItem value="best">Best (original)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Format for URL-based downloads (Link Grabber, and SoundCloud/YouTube nodes in the DJ Set Editor).
+                </p>
+              </div>
+
               <div className="flex items-center gap-3 pt-2">
                 <Switch id="allow-link-resolver-fallback" checked={tempSettings.allowResolverFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
                 ...prev,

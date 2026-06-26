@@ -12,14 +12,14 @@ import { CoffeeIcon } from "@/components/ui/coffee";
 import { BlocksIcon } from "@/components/ui/blocks-icon";
 import { AudioLinesIcon, type AudioLinesIconHandle } from "@/components/ui/audio-lines";
 import { ToolCaseIcon } from "@/components/ui/tool-case";
-import { Disc3 } from "lucide-react";
+import { Disc3, Link2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { openExternal } from "@/lib/utils";
-export type PageType = "main" | "settings" | "debug" | "audio-analysis" | "audio-converter" | "audio-resampler" | "file-manager" | "lyrics-manager" | "dj-set-editor" | "projects" | "support" | "history";
+export type PageType = "main" | "settings" | "debug" | "audio-analysis" | "audio-converter" | "audio-resampler" | "file-manager" | "lyrics-manager" | "link-grabber" | "dj-set-editor" | "projects" | "support" | "history";
 interface SidebarProps {
     currentPage: PageType;
     onPageChange: (page: PageType) => void;
@@ -113,7 +113,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     <Tooltip delayDuration={0}>
                         <DropdownMenuTrigger asChild>
                             <TooltipTrigger asChild>
-                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
+                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager", "link-grabber"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager", "link-grabber"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
                                     <ToolCaseIcon size={20}/>
                                 </Button>
                             </TooltipTrigger>
@@ -142,6 +142,10 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         <DropdownMenuItem onClick={() => onPageChange("lyrics-manager")} className="gap-3 cursor-pointer py-2 px-3" {...getAnimatedItemHandlers(lyricsManagerIconRef)}>
                             <FileTextIcon ref={lyricsManagerIconRef} size={16}/>
                             <span>Lyrics Manager</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onPageChange("link-grabber")} className="gap-3 cursor-pointer py-2 px-3">
+                            <Link2 size={16}/>
+                            <span>Link Grabber</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

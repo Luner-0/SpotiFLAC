@@ -27,6 +27,7 @@ import {
     stripExtension,
     stripIndexPrefix,
 } from "@/lib/djset";
+import { detectMediaUrl, ResolveMedia, DownloadMedia, ensureYtDlp, IsYtDlpInstalled } from "@/lib/media";
 
 // Raw search result shape returned by the Go SearchSpotify binding.
 interface RawSearchResult {
@@ -302,6 +303,38 @@ export function useDjSet() {
         const node = setRef.current.nodes[id];
         if (!node || !node.query.trim()) return null;
         updateNode(id, { status: "resolving", error: undefined });
+
+        // SoundCloud / YouTube / other URL → resolve via yt-dlp instead of Spotify.
+        const provider = detectMediaUrl(node.query);
+        if (provider) {
+            try {
+                if (!(await IsYtDlpInstalled())) {
+                    toast.info("Setting up yt-dlp (one-time download)…");
+                }
+                if (!(await ensureYtDlp())) {
+                    updateNode(id, { status: "error", error: "yt-dlp is not available" });
+                    return null;
+                }
+                const media = await ResolveMedia(node.query.trim());
+                const track: ResolvedTrack = {
+                    spotify_id: "",
+                    name: media.title,
+                    artists: media.uploader || provider,
+                    album_name: "",
+                    release_date: "",
+                    images: media.thumbnail || "",
+                    duration_ms: (media.duration || 0) * 1000,
+                    external_url: media.webpage_url || node.query.trim(),
+                };
+                updateNode(id, { status: "resolved", track, source: provider });
+                void fetchHarmonics(id, track); // often misses for bootlegs — fine
+                return track;
+            } catch (err) {
+                updateNode(id, { status: "error", error: err instanceof Error ? err.message : String(err) });
+                return null;
+            }
+        }
+
         try {
             const res = await SearchSpotify({ query: node.query.trim(), limit: 5 });
             const top = res?.tracks?.[0];
@@ -310,7 +343,7 @@ export function useDjSet() {
                 return null;
             }
             const track = mapResult(top);
-            updateNode(id, { status: "resolved", track });
+            updateNode(id, { status: "resolved", track, source: "spotify" });
             void fetchHarmonics(id, track);
             return track;
         } catch (err) {
@@ -406,6 +439,14 @@ export function useDjSet() {
                 if (!byCore.has(key)) byCore.set(key, f.path);
             }
 
+            // Make sure yt-dlp is ready if the set contains any URL (SoundCloud/
+            // YouTube) nodes.
+            const hasExternal = order.some((id) => detectMediaUrl(setRef.current.nodes[id]?.query ?? "") !== null);
+            if (hasExternal) {
+                if (!(await IsYtDlpInstalled())) toast.info("Setting up yt-dlp (one-time download)…");
+                await ensureYtDlp();
+            }
+
             let position = 0;
             let downloaded = 0;
             let renamed = 0;
@@ -459,19 +500,29 @@ export function useDjSet() {
                 updateNode(id, { status: "downloading" });
                 try {
                     logger.info(`downloading ${position}. ${track.name} - ${track.artists}`);
-                    const resp = await downloadDjTrack(settings, track, position, folder);
-                    if (resp.cancelled || stopRef.current) {
-                        updateNode(id, { status: track ? "missing" : "queued" });
-                        stopped = true;
-                        break;
-                    }
-                    if (resp.success) {
-                        updateNode(id, { status: "done", filePath: resp.file || undefined });
-                        downloaded += 1;
-                        logger.success(`downloaded: ${desired}`);
+                    if (detectMediaUrl(node.query) !== null) {
+                        // URL node (SoundCloud / YouTube / …) via yt-dlp.
+                        const r = await DownloadMedia({ url: track.external_url || node.query.trim(), output_dir: folder, filename: desired, audio_format: settings.externalAudioFormat });
+                        if (stopRef.current) { updateNode(id, { status: "missing" }); stopped = true; break; }
+                        if (r.success) {
+                            updateNode(id, { status: "done", filePath: r.file || undefined });
+                            downloaded += 1;
+                            logger.success(`downloaded: ${desired}`);
+                        } else {
+                            updateNode(id, { status: "error", error: r.error || "Download failed" });
+                            failed += 1;
+                        }
                     } else {
-                        updateNode(id, { status: "error", error: resp.error || resp.message || "Download failed" });
-                        failed += 1;
+                        const resp = await downloadDjTrack(settings, track, position, folder);
+                        if (resp.cancelled || stopRef.current) { updateNode(id, { status: "missing" }); stopped = true; break; }
+                        if (resp.success) {
+                            updateNode(id, { status: "done", filePath: resp.file || undefined });
+                            downloaded += 1;
+                            logger.success(`downloaded: ${desired}`);
+                        } else {
+                            updateNode(id, { status: "error", error: resp.error || resp.message || "Download failed" });
+                            failed += 1;
+                        }
                     }
                 } catch (err) {
                     updateNode(id, { status: "error", error: err instanceof Error ? err.message : String(err) });

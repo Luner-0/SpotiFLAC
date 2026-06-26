@@ -1943,6 +1943,59 @@ func (a *App) InstallFFmpegWithBrew() InstallFFmpegWithBrewResponse {
 	}
 }
 
+func (a *App) IsYtDlpInstalled() bool {
+	return backend.IsYtDlpInstalled()
+}
+
+type DownloadYtDlpResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+func (a *App) DownloadYtDlp() DownloadYtDlpResponse {
+	runtime.EventsEmit(a.ctx, "ytdlp:status", "starting")
+	err := backend.DownloadYtDlp(func(progress int) {
+		runtime.EventsEmit(a.ctx, "ytdlp:progress", progress)
+	})
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "ytdlp:status", "failed")
+		return DownloadYtDlpResponse{Success: false, Error: err.Error()}
+	}
+	runtime.EventsEmit(a.ctx, "ytdlp:status", "completed")
+	return DownloadYtDlpResponse{Success: true}
+}
+
+func (a *App) ResolveMedia(url string) (*backend.ExternalMedia, error) {
+	if !backend.IsYtDlpInstalled() {
+		return nil, fmt.Errorf("yt-dlp is not installed")
+	}
+	return backend.ResolveMedia(url)
+}
+
+type DownloadMediaRequest struct {
+	URL         string `json:"url"`
+	OutputDir   string `json:"output_dir"`
+	Filename    string `json:"filename,omitempty"`
+	AudioFormat string `json:"audio_format,omitempty"`
+}
+
+type DownloadMediaResponse struct {
+	Success bool   `json:"success"`
+	File    string `json:"file,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+func (a *App) DownloadMedia(req DownloadMediaRequest) DownloadMediaResponse {
+	if !backend.IsYtDlpInstalled() {
+		return DownloadMediaResponse{Success: false, Error: "yt-dlp is not installed"}
+	}
+	path, err := backend.DownloadMedia(req.URL, req.OutputDir, req.Filename, req.AudioFormat)
+	if err != nil {
+		return DownloadMediaResponse{Success: false, Error: err.Error()}
+	}
+	return DownloadMediaResponse{Success: true, File: path}
+}
+
 type ConvertAudioRequest struct {
 	InputFiles   []string `json:"input_files"`
 	OutputFormat string   `json:"output_format"`

@@ -27,6 +27,7 @@ import { AudioResamplerPage } from "@/components/AudioResamplerPage";
 import { FileManagerPage } from "@/components/FileManagerPage";
 import { LyricsManagerPage } from "@/components/LyricsManagerPage";
 import { DjSetEditorPage } from "@/components/DjSetEditorPage";
+import { LinkGrabberPage } from "@/components/LinkGrabberPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { DebugLoggerPage } from "@/components/DebugLoggerPage";
 import { OtherProjects } from "@/components/OtherProjects";
@@ -581,6 +582,8 @@ function App() {
                 return <LyricsManagerPage />;
             case "dj-set-editor":
                 return <DjSetEditorPage />;
+            case "link-grabber":
+                return <LinkGrabberPage />;
             default:
                 return (<>
                     <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>

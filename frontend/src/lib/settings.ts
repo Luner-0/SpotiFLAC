@@ -64,6 +64,7 @@ export interface Settings {
     redownloadWithSuffix: boolean;
     separator: "comma" | "semicolon";
     getSongBpmApiKey: string;
+    externalAudioFormat: "mp3" | "opus" | "best";
 }
 export const FOLDER_PRESETS: Record<FolderPreset, {
     label: string;
@@ -231,6 +232,7 @@ export const DEFAULT_SETTINGS: Settings = {
     redownloadWithSuffix: true,
     separator: "semicolon",
     getSongBpmApiKey: "",
+    externalAudioFormat: "mp3",
 };
 export const FONT_OPTIONS: FontOption[] = [
     {
@@ -695,6 +697,9 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     }
     if (typeof normalized.getSongBpmApiKey !== "string") {
         normalized.getSongBpmApiKey = "";
+    }
+    if (normalized.externalAudioFormat !== "opus" && normalized.externalAudioFormat !== "best") {
+        normalized.externalAudioFormat = "mp3";
     }
     normalized.operatingSystem = detectOS();
     const normalizedCustomFonts = normalizeCustomFonts(normalized.customFonts);

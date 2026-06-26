@@ -46,6 +46,7 @@ export interface DjSetNode {
     error?: string;
     harmonics?: SongHarmonics;
     harmonicsStatus?: HarmonicsStatus;
+    source?: "spotify" | "soundcloud" | "youtube" | "url"; // resolution path
     x?: number; // canvas position (preserved across edits)
     y?: number;
 }

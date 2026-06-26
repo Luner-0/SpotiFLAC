@@ -22,6 +22,7 @@ import {
     Replace,
 } from "lucide-react";
 import { camelotColor, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
+import { providerLabel } from "@/lib/media";
 
 export interface SongNodeData {
     node: DjSetNode;
@@ -70,6 +71,7 @@ export function SongNode(props: NodeProps) {
 
     const busy = processing || node.status === "resolving" || node.status === "downloading" || node.status === "renaming";
     const meta = STATUS_META[node.status];
+    const isExternal = !!node.source && node.source !== "spotify";
 
     const openPicker = async () => {
         setPickerOpen(true);
@@ -110,7 +112,7 @@ export function SongNode(props: NodeProps) {
                 <div className="flex gap-2 nodrag">
                     <Input
                         value={node.query}
-                        placeholder="Search query (e.g. Strobe deadmau5)"
+                        placeholder="Search, or paste a SoundCloud / YouTube URL"
                         disabled={busy}
                         onChange={(e) => data.onQueryChange(node.id, e.target.value)}
                         onKeyDown={(e) => {
@@ -136,9 +138,13 @@ export function SongNode(props: NodeProps) {
                             <p className="truncate text-sm font-medium">{node.track.name}</p>
                             <p className="truncate text-xs text-muted-foreground">{node.track.artists}</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 nodrag" disabled={busy || !node.query.trim()} onClick={openPicker} title="Pick a different match">
-                            <Replace className="h-4 w-4" />
-                        </Button>
+                        {isExternal ? (
+                            <Badge variant="secondary" className="shrink-0">{providerLabel(node.source)}</Badge>
+                        ) : (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 nodrag" disabled={busy || !node.query.trim()} onClick={openPicker} title="Pick a different match">
+                                <Replace className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 )}
 
