@@ -26,6 +26,7 @@ import { AudioConverterPage } from "@/components/AudioConverterPage";
 import { AudioResamplerPage } from "@/components/AudioResamplerPage";
 import { FileManagerPage } from "@/components/FileManagerPage";
 import { LyricsManagerPage } from "@/components/LyricsManagerPage";
+import { DjSetEditorPage } from "@/components/DjSetEditorPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { DebugLoggerPage } from "@/components/DebugLoggerPage";
 import { OtherProjects } from "@/components/OtherProjects";
@@ -578,6 +579,8 @@ function App() {
                 return <FileManagerPage />;
             case "lyrics-manager":
                 return <LyricsManagerPage />;
+            case "dj-set-editor":
+                return <DjSetEditorPage />;
             default:
                 return (<>
                     <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>
