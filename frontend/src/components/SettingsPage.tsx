@@ -6,7 +6,7 @@ import { InputWithContext } from "@/components/ui/input-with-context";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/tooltip";
-import { FolderOpen, Save, RotateCcw, Info, ArrowRight, MonitorCog, FolderCog, Router, FolderLock, Plus, Trash2, ExternalLink, PlugZap, Download, Tags, FileSignature } from "lucide-react";
+import { FolderOpen, Save, RotateCcw, Info, ArrowRight, MonitorCog, FolderCog, Router, FolderLock, Plus, Trash2, ExternalLink, PlugZap, Download, Tags, FileSignature, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, TEMPLATE_VARIABLES, DEFAULT_SETTINGS, sanitizeAutoOrder, type Settings as SettingsType, type FontFamily, type CustomFontFamily, type ExistingFileCheckMode, } from "@/lib/settings";
@@ -33,6 +33,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
     const [addFontUrl, setAddFontUrl] = useState("");
     const [customTidalApiStatus, setCustomTidalApiStatus] = useState<CustomTidalApiStatus>("idle");
     const [customQobuzApiStatus, setCustomQobuzApiStatus] = useState<CustomTidalApiStatus>("idle");
+    const [showApiKey, setShowApiKey] = useState(false);
     const parsedAddFont = parseGoogleFontUrl(addFontUrl);
     const fontOptions = getFontOptions(tempSettings.customFonts);
     const hasUnsavedChanges = JSON.stringify(savedSettings) !== JSON.stringify(tempSettings);
@@ -451,10 +452,15 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
 
               <div className="space-y-2">
                 <Label htmlFor="getsongbpm-api-key">GetSongBPM API Key</Label>
-                <Input id="getsongbpm-api-key" type="text" autoComplete="off" value={tempSettings.getSongBpmApiKey || ""} onChange={(e) => setTempSettings((prev) => ({
+                <div className="flex gap-2">
+                  <Input id="getsongbpm-api-key" type={showApiKey ? "text" : "password"} autoComplete="off" value={tempSettings.getSongBpmApiKey || ""} onChange={(e) => setTempSettings((prev) => ({
                 ...prev,
                 getSongBpmApiKey: e.target.value.trim(),
             }))} placeholder="Paste your getsongbpm.com API key"/>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setShowApiKey((v) => !v)} title={showApiKey ? "Hide API key" : "Show API key"} aria-label={showApiKey ? "Hide API key" : "Show API key"}>
+                    {showApiKey ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Enables key / BPM / Camelot in the DJ Set Editor. Data and BPM/key powered by{" "}
                   <button type="button" onClick={() => openExternal("https://getsongbpm.com")} className="inline-flex cursor-pointer items-center gap-0.5 text-foreground hover:underline">
