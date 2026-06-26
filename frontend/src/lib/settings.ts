@@ -63,6 +63,7 @@ export interface Settings {
     embedGenre: boolean;
     redownloadWithSuffix: boolean;
     separator: "comma" | "semicolon";
+    getSongBpmApiKey: string;
 }
 export const FOLDER_PRESETS: Record<FolderPreset, {
     label: string;
@@ -229,6 +230,7 @@ export const DEFAULT_SETTINGS: Settings = {
     embedGenre: false,
     redownloadWithSuffix: true,
     separator: "semicolon",
+    getSongBpmApiKey: "",
 };
 export const FONT_OPTIONS: FontOption[] = [
     {
@@ -690,6 +692,9 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     }
     if (!("redownloadWithSuffix" in normalized)) {
         normalized.redownloadWithSuffix = false;
+    }
+    if (typeof normalized.getSongBpmApiKey !== "string") {
+        normalized.getSongBpmApiKey = "";
     }
     normalized.operatingSystem = detectOS();
     const normalizedCustomFonts = normalizeCustomFonts(normalized.customFonts);

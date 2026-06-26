@@ -2366,6 +2366,14 @@ func (a *App) GetTrackISRC(spotifyTrackID string) string {
 	return backend.ResolveTrackISRC(spotifyTrackID)
 }
 
+func (a *App) GetSongHarmonics(artist, title string) (*backend.SongHarmonics, error) {
+	apiKey := backend.GetGetSongBPMKey()
+	if apiKey == "" {
+		return nil, fmt.Errorf("GetSongBPM API key is not set in Settings")
+	}
+	return backend.FetchSongHarmonics(apiKey, artist, title)
+}
+
 func (a *App) GetPreviewURL(trackID string) (string, error) {
 	return backend.GetPreviewURL(trackID)
 }

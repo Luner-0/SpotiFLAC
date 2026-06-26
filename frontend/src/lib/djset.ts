@@ -18,6 +18,14 @@ export type NodeStatus =
     | "done" // file is on disk with the correct index
     | "error"; // resolve/download/rename failed
 
+export interface SongHarmonics {
+    bpm?: number;
+    key?: string; // musical key text, e.g. "Gm"
+    camelot?: string; // Camelot code, e.g. "6A"
+}
+
+export type HarmonicsStatus = "loading" | "done" | "none";
+
 export interface ResolvedTrack {
     spotify_id: string;
     name: string;
@@ -36,6 +44,8 @@ export interface DjSetNode {
     track?: ResolvedTrack;
     filePath?: string; // current path on disk once present/done
     error?: string;
+    harmonics?: SongHarmonics;
+    harmonicsStatus?: HarmonicsStatus;
 }
 
 export interface DjSet {
@@ -151,6 +161,9 @@ export function loadDjSet(): DjSet | null {
             if (!node) continue;
             if (node.status === "resolving" || node.status === "downloading" || node.status === "renaming") {
                 node.status = node.track ? "resolved" : node.query.trim() ? "queued" : "empty";
+            }
+            if (node.harmonicsStatus === "loading") {
+                node.harmonicsStatus = node.harmonics ? "done" : undefined;
             }
         }
         return parsed;

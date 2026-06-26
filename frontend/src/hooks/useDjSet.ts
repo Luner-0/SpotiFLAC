@@ -61,6 +61,8 @@ const RenameFileTo = (oldPath: string, newName: string) =>
 const SelectFolder = (def: string) => wails().SelectFolder(def) as Promise<string>;
 const OpenFolder = (path: string) => wails().OpenFolder(path) as Promise<void>;
 const ForceStopDownloads = () => wails().ForceStopDownloads() as Promise<void>;
+const GetSongHarmonics = (artist: string, title: string) =>
+    wails().GetSongHarmonics(artist, title) as Promise<{ bpm: number; key: string; camelot: string }>;
 
 function mapResult(r: RawSearchResult): ResolvedTrack {
     return {
@@ -250,6 +252,27 @@ export function useDjSet() {
         return (res?.tracks ?? []).map(mapResult);
     }, []);
 
+    // Fetch key/BPM/Camelot for a node's track from GetSongBPM (no-op if the user
+    // hasn't set an API key). Runs in the background after a track is resolved.
+    const fetchHarmonics = useCallback(async (id: string, track: ResolvedTrack) => {
+        const apiKey = getSettings().getSongBpmApiKey?.trim();
+        if (!apiKey) return;
+        updateNode(id, { harmonicsStatus: "loading" });
+        try {
+            const h = await GetSongHarmonics(track.artists, track.name);
+            if (h && (h.bpm || h.key)) {
+                updateNode(id, {
+                    harmonics: { bpm: h.bpm || undefined, key: h.key || undefined, camelot: h.camelot || undefined },
+                    harmonicsStatus: "done",
+                });
+            } else {
+                updateNode(id, { harmonicsStatus: "none" });
+            }
+        } catch {
+            updateNode(id, { harmonicsStatus: "none" });
+        }
+    }, [updateNode]);
+
     // Resolve one node's query to its top Spotify match. Returns the track (also
     // written to state) or null on no-match/error.
     const resolveNode = useCallback(async (id: string): Promise<ResolvedTrack | null> => {
@@ -265,16 +288,18 @@ export function useDjSet() {
             }
             const track = mapResult(top);
             updateNode(id, { status: "resolved", track });
+            void fetchHarmonics(id, track);
             return track;
         } catch (err) {
             updateNode(id, { status: "error", error: err instanceof Error ? err.message : String(err) });
             return null;
         }
-    }, [updateNode]);
+    }, [updateNode, fetchHarmonics]);
 
     const pickMatch = useCallback((id: string, track: ResolvedTrack) => {
-        updateNode(id, { status: "resolved", track, filePath: undefined, error: undefined });
-    }, [updateNode]);
+        updateNode(id, { status: "resolved", track, filePath: undefined, error: undefined, harmonics: undefined, harmonicsStatus: undefined });
+        void fetchHarmonics(id, track);
+    }, [updateNode, fetchHarmonics]);
 
     const resolveAll = useCallback(async () => {
         for (const id of setRef.current.order) {

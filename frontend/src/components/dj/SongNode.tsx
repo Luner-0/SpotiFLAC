@@ -142,6 +142,30 @@ export function SongNode(props: NodeProps) {
                     </div>
                 )}
 
+                {node.track && (node.harmonics || node.harmonicsStatus) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {node.harmonicsStatus === "loading" ? (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Spinner className="h-3 w-3" /> reading key / BPM…
+                            </span>
+                        ) : node.harmonics ? (
+                            <>
+                                {node.harmonics.camelot && (
+                                    <Badge variant="default" className="font-mono" title="Camelot code">{node.harmonics.camelot}</Badge>
+                                )}
+                                {node.harmonics.key && (
+                                    <Badge variant="outline" title="Musical key">{node.harmonics.key}</Badge>
+                                )}
+                                {node.harmonics.bpm ? (
+                                    <Badge variant="secondary" title="Tempo">{node.harmonics.bpm} BPM</Badge>
+                                ) : null}
+                            </>
+                        ) : node.harmonicsStatus === "none" ? (
+                            <span className="text-xs text-muted-foreground">No key / BPM data</span>
+                        ) : null}
+                    </div>
+                )}
+
                 {node.error && <p className="text-xs text-destructive">{node.error}</p>}
             </div>
 

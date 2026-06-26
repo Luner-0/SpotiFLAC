@@ -449,6 +449,17 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="getsongbpm-api-key">GetSongBPM API Key</Label>
+                <Input id="getsongbpm-api-key" type="text" autoComplete="off" value={tempSettings.getSongBpmApiKey || ""} onChange={(e) => setTempSettings((prev) => ({
+                ...prev,
+                getSongBpmApiKey: e.target.value.trim(),
+            }))} placeholder="Paste your getsongbpm.com API key"/>
+                <p className="text-xs text-muted-foreground">
+                  Enables key / BPM / Camelot in the DJ Set Editor. Get a free key at getsongbpm.com/api.
+                </p>
+              </div>
+
               <div className="flex items-center gap-3 pt-2">
                 <Switch id="allow-link-resolver-fallback" checked={tempSettings.allowResolverFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
                 ...prev,
