@@ -122,19 +122,30 @@ export function camelotColor(code?: string): { bg: string; fg: string } | null {
     return { bg, fg: "#0b0b0c" };
 }
 
-// Harmonic compatibility per the Camelot rules: same code, relative major/minor
-// (same number, other letter), or an adjacent number on the same letter (with
-// 12↔1 wrap). Returns null if either code is unknown.
-export function camelotCompatible(a?: string, b?: string): boolean | null {
+// Describe the harmonic relationship between two Camelot codes as a neutral
+// label (not a pass/fail verdict — "incompatible" keys can still work).
+// `compatible` marks the classic smooth moves (same key, relative major/minor,
+// or one step around the wheel) for gentle color-coding only.
+export function camelotRelation(a?: string, b?: string): { label: string; compatible: boolean } | null {
     const pa = parseCamelot(a);
     const pb = parseCamelot(b);
     if (!pa || !pb) return null;
-    if (pa.num === pb.num) return true; // same key or relative major/minor
-    if (pa.letter === pb.letter) {
-        const diff = Math.abs(pa.num - pb.num);
-        if (Math.min(diff, 12 - diff) === 1) return true; // adjacent on the wheel
+
+    // Signed shortest distance around the wheel (-5..+6).
+    let steps = pb.num - pa.num;
+    if (steps > 6) steps -= 12;
+    if (steps < -6) steps += 12;
+    const sameLetter = pa.letter === pb.letter;
+
+    if (steps === 0 && sameLetter) return { label: "same key", compatible: true };
+    if (steps === 0 && !sameLetter) return { label: "relative", compatible: true };
+
+    const signed = `${steps > 0 ? "+" : ""}${steps}`;
+    if (sameLetter) {
+        return { label: signed, compatible: Math.abs(steps) === 1 };
     }
-    return false;
+    // Different mode (major↔minor) and a wheel distance.
+    return { label: `${signed} ·m`, compatible: false };
 }
 
 // Port of backend SanitizeFilename (backend/filename.go) so the names we

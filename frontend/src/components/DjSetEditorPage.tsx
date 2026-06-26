@@ -25,7 +25,7 @@ import {
 import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
-import { songCount as countSongs, camelotCompatible } from "@/lib/djset";
+import { songCount as countSongs, camelotRelation } from "@/lib/djset";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
 
 const NODE_GAP = 190;
@@ -83,16 +83,19 @@ export function DjSetEditorPage() {
             const source = set.order[i];
             const target = set.order[i + 1];
             const edge: Edge = { id: `${source}->${target}`, source, target };
-            // Label the connector with harmonic compatibility when both tracks
-            // have a Camelot code.
-            const compatible = camelotCompatible(set.nodes[source]?.harmonics?.camelot, set.nodes[target]?.harmonics?.camelot);
-            if (compatible !== null) {
-                edge.label = compatible ? "✓ in key" : "⚠ clash";
-                edge.labelStyle = { fill: compatible ? "#15803d" : "#b91c1c", fontWeight: 600, fontSize: 11 };
-                edge.labelBgStyle = { fill: compatible ? "#dcfce7" : "#fee2e2" };
+            // Label the connector with the neutral harmonic distance between the
+            // two keys (not a verdict) when both tracks have a Camelot code.
+            const relation = camelotRelation(set.nodes[source]?.harmonics?.camelot, set.nodes[target]?.harmonics?.camelot);
+            if (relation) {
+                const palette = relation.compatible
+                    ? { stroke: "#22c55e", bg: "#dcfce7", text: "#15803d" } // smooth move
+                    : { stroke: "#94a3b8", bg: "#e2e8f0", text: "#475569" }; // neutral distance
+                edge.label = relation.label;
+                edge.labelStyle = { fill: palette.text, fontWeight: 600, fontSize: 11 };
+                edge.labelBgStyle = { fill: palette.bg };
                 edge.labelBgPadding = [6, 3];
                 edge.labelBgBorderRadius = 6;
-                edge.style = { stroke: compatible ? "#22c55e" : "#ef4444", strokeWidth: 2 };
+                edge.style = { stroke: palette.stroke, strokeWidth: 2 };
             }
             edges.push(edge);
         }
