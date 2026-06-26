@@ -11,12 +11,18 @@ import {
     type ResolvedTrack,
     DJ_FILENAME_FORMAT,
     basename,
+    buildSetFromFolder,
     coreName,
     createEmptySet,
     createNode,
+    deleteFromLibrary,
+    getLibrarySet,
     indexedName,
     loadDjSet,
+    loadLibrary,
     saveDjSet,
+    saveToLibrary,
+    songCount,
     stripExtension,
     stripIndexPrefix,
 } from "@/lib/djset";
@@ -155,6 +161,7 @@ async function downloadDjTrack(
 
 export function useDjSet() {
     const [set, setSet] = useState<DjSet>(() => loadDjSet() ?? createEmptySet(getSettings().downloadPath));
+    const [library, setLibrary] = useState<DjSet[]>(() => loadLibrary());
     const [processing, setProcessing] = useState(false);
     const setRef = useRef(set);
     const processingRef = useRef(false);
@@ -463,13 +470,77 @@ export function useDjSet() {
         }
     }, [getSetFolder]);
 
+    // Auto-snapshot the current set into the library before switching away, so
+    // unsaved work isn't lost when starting/loading/importing another set.
+    const snapshotCurrent = useCallback(() => {
+        const current = setRef.current;
+        if (current.order.some((id) => current.nodes[id]?.query.trim())) {
+            setLibrary(saveToLibrary(current));
+        }
+    }, []);
+
+    const saveCurrent = useCallback(() => {
+        setLibrary(saveToLibrary(setRef.current));
+        toast.success("Set saved");
+    }, []);
+
+    const newSet = useCallback(() => {
+        snapshotCurrent();
+        setSet(createEmptySet(getSettings().downloadPath));
+    }, [snapshotCurrent]);
+
+    const loadSet = useCallback((id: string) => {
+        const target = getLibrarySet(id);
+        if (!target) {
+            toast.error("Saved set not found");
+            return;
+        }
+        snapshotCurrent();
+        setSet(JSON.parse(JSON.stringify(target)) as DjSet);
+        setLibrary(loadLibrary());
+        toast.success(`Loaded "${target.name}"`);
+    }, [snapshotCurrent]);
+
+    const deleteSet = useCallback((id: string) => {
+        setLibrary(deleteFromLibrary(id));
+    }, []);
+
+    const importFromFolder = useCallback(async () => {
+        try {
+            const folder = await SelectFolder(getSettings().downloadPath);
+            if (!folder) return;
+            let files: Array<{ name: string; path: string }> = [];
+            try {
+                files = (await ListAudioFilesInDir(folder)) ?? [];
+            } catch {
+                files = [];
+            }
+            if (files.length === 0) {
+                toast.error("No audio files found in that folder");
+                return;
+            }
+            snapshotCurrent();
+            const imported = buildSetFromFolder(folder, files);
+            setSet(imported);
+            toast.success(`Imported ${songCount(imported)} track(s) — run Resolve All to match them`);
+        } catch (err) {
+            toast.error(`Failed to import folder: ${err}`);
+        }
+    }, [snapshotCurrent]);
+
     const clearSet = useCallback(() => {
         setSet(createEmptySet(getSettings().downloadPath));
     }, []);
 
     return {
         set,
+        library,
         processing,
+        saveCurrent,
+        newSet,
+        loadSet,
+        deleteSet,
+        importFromFolder,
         addNode,
         removeNode,
         updateQuery,

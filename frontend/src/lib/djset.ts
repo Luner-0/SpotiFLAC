@@ -39,10 +39,12 @@ export interface DjSetNode {
 }
 
 export interface DjSet {
+    id: string;
     name: string;
     outputFolder: string; // base folder; tracks land in <outputFolder>/<name>
     order: string[]; // node ids in play order
     nodes: Record<string, DjSetNode>;
+    updatedAt?: number;
 }
 
 // Filename format used for every downloaded track in a set. The {track} token
@@ -62,11 +64,23 @@ export function createNode(query = ""): DjSetNode {
 export function createEmptySet(outputFolder: string): DjSet {
     const first = createNode();
     return {
+        id: crypto.randomUUID(),
         name: "My DJ Set",
         outputFolder,
         order: [first.id],
         nodes: { [first.id]: first },
+        updatedAt: Date.now(),
     };
+}
+
+export function songCount(set: DjSet): number {
+    return set.order.filter((id) => set.nodes[id]?.query.trim()).length;
+}
+
+// Number of leading digits in a filename, used to order imported files.
+export function parseIndexPrefix(nameWithoutExt: string): number | null {
+    const match = nameWithoutExt.match(/^\s*(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
 }
 
 // Port of backend SanitizeFilename (backend/filename.go) so the names we
@@ -129,6 +143,7 @@ export function loadDjSet(): DjSet | null {
         if (!parsed || !Array.isArray(parsed.order) || typeof parsed.nodes !== "object") {
             return null;
         }
+        if (!parsed.id) parsed.id = crypto.randomUUID(); // backfill pre-library sets
         // Reset in-progress statuses that can't survive a restart so a node saved
         // mid-resolve/download doesn't come back stuck in a spinner state.
         for (const id of parsed.order) {
@@ -151,4 +166,91 @@ export function saveDjSet(set: DjSet): void {
     } catch (err) {
         console.error("Failed to save DJ set:", err);
     }
+}
+
+// --- Saved-sets library (separate from the active working set) ---
+
+const LIBRARY_KEY = "spotiflac_dj_sets";
+
+function persistLibrary(library: DjSet[]): void {
+    try {
+        localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+    } catch (err) {
+        console.error("Failed to save DJ set library:", err);
+    }
+}
+
+export function loadLibrary(): DjSet[] {
+    try {
+        const raw = localStorage.getItem(LIBRARY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? (parsed as DjSet[]) : [];
+    } catch (err) {
+        console.error("Failed to load DJ set library:", err);
+        return [];
+    }
+}
+
+// Upsert a set (by id) into the library and return the refreshed, recency-sorted list.
+export function saveToLibrary(set: DjSet): DjSet[] {
+    const snapshot: DjSet = JSON.parse(JSON.stringify({ ...set, updatedAt: Date.now() }));
+    const library = loadLibrary().filter((s) => s.id !== set.id);
+    library.unshift(snapshot);
+    library.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    persistLibrary(library);
+    return library;
+}
+
+export function deleteFromLibrary(id: string): DjSet[] {
+    const library = loadLibrary().filter((s) => s.id !== id);
+    persistLibrary(library);
+    return library;
+}
+
+export function getLibrarySet(id: string): DjSet | null {
+    return loadLibrary().find((s) => s.id === id) ?? null;
+}
+
+// Build a set from a folder of (numbered) audio files: ordered by index prefix,
+// each node's query derived from the filename, with the file path attached.
+export function buildSetFromFolder(folder: string, files: Array<{ path: string }>): DjSet {
+    const entries = files
+        .map((f) => {
+            const nameNoExt = stripExtension(basename(f.path));
+            return { path: f.path, nameNoExt, index: parseIndexPrefix(nameNoExt) };
+        })
+        .sort((a, b) => {
+            const ai = a.index ?? Number.MAX_SAFE_INTEGER;
+            const bi = b.index ?? Number.MAX_SAFE_INTEGER;
+            return ai - bi || a.nameNoExt.localeCompare(b.nameNoExt);
+        });
+
+    const order: string[] = [];
+    const nodes: Record<string, DjSetNode> = {};
+    for (const entry of entries) {
+        const core = stripIndexPrefix(entry.nameNoExt) || entry.nameNoExt;
+        const node = createNode(core);
+        node.filePath = entry.path;
+        nodes[node.id] = node;
+        order.push(node.id);
+    }
+    if (order.length === 0) {
+        const empty = createNode();
+        nodes[empty.id] = empty;
+        order.push(empty.id);
+    }
+
+    const normalized = folder.replace(/[\\/]+$/, "");
+    const name = normalized.split(/[\\/]/).pop() || "Imported Set";
+    const parent = normalized.slice(0, normalized.length - name.length).replace(/[\\/]+$/, "");
+
+    return {
+        id: crypto.randomUUID(),
+        name,
+        outputFolder: parent,
+        order,
+        nodes,
+        updatedAt: Date.now(),
+    };
 }

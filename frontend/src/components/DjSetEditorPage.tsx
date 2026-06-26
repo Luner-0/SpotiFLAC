@@ -14,9 +14,18 @@ import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
+import { songCount as countSongs } from "@/lib/djset";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
 
 const NODE_GAP = 190;
@@ -24,7 +33,7 @@ const nodeTypes = { song: SongNode };
 
 export function DjSetEditorPage() {
     const dj = useDjSet();
-    const { set, processing } = dj;
+    const { set, processing, library } = dj;
     const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const instanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
@@ -149,6 +158,42 @@ export function DjSetEditorPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" disabled={processing}>
+                            <Library className="h-4 w-4" /> Sets <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72">
+                        <DropdownMenuItem onClick={dj.saveCurrent} className="gap-2 cursor-pointer">
+                            <Save className="h-4 w-4" /> Save current set
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={dj.newSet} className="gap-2 cursor-pointer">
+                            <FilePlus2 className="h-4 w-4" /> New set
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={dj.importFromFolder} className="gap-2 cursor-pointer">
+                            <FolderInput className="h-4 w-4" /> Import from folder…
+                        </DropdownMenuItem>
+                        {library.length > 0 && <DropdownMenuSeparator />}
+                        {library.length > 0 && <DropdownMenuLabel>Saved sets</DropdownMenuLabel>}
+                        {library.map((s) => (
+                            <DropdownMenuItem key={s.id} onClick={() => dj.loadSet(s.id)} className="flex items-center justify-between gap-2 cursor-pointer">
+                                <span className="min-w-0 flex-1 truncate">
+                                    {s.name}
+                                    <span className="ml-1 text-xs text-muted-foreground">· {countSongs(s)} song(s)</span>
+                                </span>
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={(e) => { e.stopPropagation(); dj.deleteSet(s.id); }}
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </span>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="outline" size="sm" disabled={processing} onClick={() => dj.addNode()}>
                     <Plus className="h-4 w-4" /> Add Song
                 </Button>
