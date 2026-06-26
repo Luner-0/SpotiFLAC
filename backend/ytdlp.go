@@ -153,12 +153,12 @@ func downloadBinaryWithProgress(url, dest string, progressCallback func(int)) er
 
 // ExternalMedia is the subset of yt-dlp's JSON metadata we surface.
 type ExternalMedia struct {
-	Title      string `json:"title"`
-	Uploader   string `json:"uploader"`
-	Duration   int    `json:"duration"` // seconds
-	Thumbnail  string `json:"thumbnail"`
-	WebpageURL string `json:"webpage_url"`
-	Extractor  string `json:"extractor_key"`
+	Title      string  `json:"title"`
+	Uploader   string  `json:"uploader"`
+	Duration   float64 `json:"duration"` // seconds (can be fractional)
+	Thumbnail  string  `json:"thumbnail"`
+	WebpageURL string  `json:"webpage_url"`
+	Extractor  string  `json:"extractor_key"`
 }
 
 func ResolveMedia(url string) (*ExternalMedia, error) {
