@@ -197,6 +197,42 @@ func ResolveMedia(url string) (*ExternalMedia, error) {
 	return &media, nil
 }
 
+// GetMediaStreamURL returns a directly-playable audio stream URL for a media URL
+// (used for in-app preview). Prefers non-HLS audio so the WebView can play it.
+func GetMediaStreamURL(url string) (string, error) {
+	if strings.TrimSpace(url) == "" {
+		return "", fmt.Errorf("url is required")
+	}
+	bin, err := GetYtDlpPath()
+	if err != nil {
+		return "", err
+	}
+	if !IsYtDlpInstalled() {
+		return "", fmt.Errorf("yt-dlp is not installed")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin,
+		"-f", "bestaudio[protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best",
+		"-g", "--no-playlist", "--no-warnings", url)
+	setHideWindow(cmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("could not get a preview stream: %s", strings.TrimSpace(stderr.String()))
+	}
+	line := strings.TrimSpace(stdout.String())
+	if idx := strings.IndexByte(line, '\n'); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	if line == "" {
+		return "", fmt.Errorf("no stream url returned")
+	}
+	return line, nil
+}
+
 func normalizeExternalAudioFormat(format string) string {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "opus":

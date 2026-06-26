@@ -25,7 +25,8 @@ import {
 import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
-import { songCount as countSongs, camelotRelation, NODE_LAYOUT_GAP } from "@/lib/djset";
+import { useDjPreview } from "@/hooks/useDjPreview";
+import { songCount as countSongs, camelotRelation, NODE_LAYOUT_GAP, type DjSetNode } from "@/lib/djset";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
 
 const NODE_GAP = NODE_LAYOUT_GAP;
@@ -34,6 +35,10 @@ const nodeTypes = { song: SongNode };
 export function DjSetEditorPage() {
     const dj = useDjSet();
     const { set, processing, library } = dj;
+    const preview = useDjPreview();
+    const previewRef = useRef(preview);
+    previewRef.current = preview;
+    const onPreview = useCallback((node: DjSetNode) => previewRef.current.toggle(node), []);
     const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const instanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
@@ -70,6 +75,9 @@ export function DjSetEditorPage() {
                 onMove: dj.moveNode,
                 onSearch: dj.searchTrack,
                 onPick: dj.pickMatch,
+                onPreview,
+                previewPlayingId: preview.playingId,
+                previewLoadingId: preview.loadingId,
             };
             return {
                 id,
@@ -101,7 +109,7 @@ export function DjSetEditorPage() {
         }
         setRfNodes(nodes);
         setRfEdges(edges);
-    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, setRfNodes, setRfEdges]);
+    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, onPreview, preview.playingId, preview.loadingId, setRfNodes, setRfEdges]);
 
     // Fit the view once, after the real nodes have actually been loaded into the
     // canvas (fitting while the canvas is still empty leaves nodes off-screen).

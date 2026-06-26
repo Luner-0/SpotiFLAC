@@ -1985,6 +1985,13 @@ type DownloadMediaResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
+func (a *App) GetMediaStreamURL(url string) (string, error) {
+	if !backend.IsYtDlpInstalled() {
+		return "", fmt.Errorf("yt-dlp is not installed")
+	}
+	return backend.GetMediaStreamURL(url)
+}
+
 func (a *App) DownloadMedia(req DownloadMediaRequest) DownloadMediaResponse {
 	if !backend.IsYtDlpInstalled() {
 		return DownloadMediaResponse{Success: false, Error: "yt-dlp is not installed"}

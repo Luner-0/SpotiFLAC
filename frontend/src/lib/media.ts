@@ -43,6 +43,7 @@ const app = (): AppApi => (window as unknown as { go: { main: { App: AppApi } } 
 export const ResolveMedia = (url: string) => app().ResolveMedia(url) as Promise<ExternalMedia>;
 export const DownloadMedia = (req: { url: string; output_dir: string; filename?: string; audio_format?: string }) =>
     app().DownloadMedia(req) as Promise<{ success: boolean; file?: string; error?: string }>;
+export const GetMediaStreamURL = (url: string) => app().GetMediaStreamURL(url) as Promise<string>;
 export const IsYtDlpInstalled = () => app().IsYtDlpInstalled() as Promise<boolean>;
 export const DownloadYtDlp = () => app().DownloadYtDlp() as Promise<{ success: boolean; error?: string }>;
 

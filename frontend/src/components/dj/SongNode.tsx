@@ -20,6 +20,8 @@ import {
     CheckCircle2,
     AlertCircle,
     Replace,
+    Play,
+    Pause,
 } from "lucide-react";
 import { camelotColor, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
 import { providerLabel } from "@/lib/media";
@@ -36,6 +38,9 @@ export interface SongNodeData {
     onMove: (id: string, direction: -1 | 1) => void;
     onSearch: (query: string) => Promise<ResolvedTrack[]>;
     onPick: (id: string, track: ResolvedTrack) => void;
+    onPreview: (node: DjSetNode) => void;
+    previewPlayingId: string | null;
+    previewLoadingId: string | null;
     [key: string]: unknown;
 }
 
@@ -72,6 +77,8 @@ export function SongNode(props: NodeProps) {
     const busy = processing || node.status === "resolving" || node.status === "downloading" || node.status === "renaming";
     const meta = STATUS_META[node.status];
     const isExternal = !!node.source && node.source !== "spotify";
+    const isPreviewPlaying = data.previewPlayingId === node.id;
+    const isPreviewLoading = data.previewLoadingId === node.id;
 
     const openPicker = async () => {
         setPickerOpen(true);
@@ -138,6 +145,22 @@ export function SongNode(props: NodeProps) {
                             <p className="truncate text-sm font-medium">{node.track.name}</p>
                             <p className="truncate text-xs text-muted-foreground">{node.track.artists}</p>
                         </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 nodrag"
+                            disabled={node.status === "resolving"}
+                            onClick={() => data.onPreview(node)}
+                            title={isPreviewPlaying ? "Stop preview" : "Preview"}
+                        >
+                            {isPreviewLoading ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : isPreviewPlaying ? (
+                                <Pause className="h-4 w-4" />
+                            ) : (
+                                <Play className="h-4 w-4" />
+                            )}
+                        </Button>
                         {isExternal ? (
                             <Badge variant="secondary" className="shrink-0">{providerLabel(node.source)}</Badge>
                         ) : (
