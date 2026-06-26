@@ -22,7 +22,6 @@ export interface SongHarmonics {
     bpm?: number;
     key?: string; // musical key text, e.g. "Gm"
     camelot?: string; // Camelot code, e.g. "6A"
-    estimated?: boolean; // true when derived from in-app analysis (unreliable)
 }
 
 export type HarmonicsStatus = "loading" | "done" | "none";

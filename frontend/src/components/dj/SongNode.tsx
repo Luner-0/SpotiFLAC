@@ -22,7 +22,6 @@ import {
     Replace,
     Play,
     Pause,
-    Wand2,
 } from "lucide-react";
 import { camelotColor, type DjSetNode, type NodeStatus, type ResolvedTrack } from "@/lib/djset";
 import { providerLabel } from "@/lib/media";
@@ -40,7 +39,6 @@ export interface SongNodeData {
     onSearch: (query: string) => Promise<ResolvedTrack[]>;
     onPick: (id: string, track: ResolvedTrack) => void;
     onPreview: (node: DjSetNode) => void;
-    onAnalyze: (id: string) => void;
     previewPlayingId: string | null;
     previewLoadingId: string | null;
     [key: string]: unknown;
@@ -163,18 +161,6 @@ export function SongNode(props: NodeProps) {
                                 <Play className="h-4 w-4" />
                             )}
                         </Button>
-                        {node.filePath && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 nodrag"
-                                disabled={busy || node.harmonicsStatus === "loading"}
-                                onClick={() => data.onAnalyze(node.id)}
-                                title="Estimate key / BPM from the file (in-app, may be inaccurate)"
-                            >
-                                <Wand2 className="h-4 w-4" />
-                            </Button>
-                        )}
                         {isExternal ? (
                             <Badge variant="secondary" className="shrink-0">{providerLabel(node.source)}</Badge>
                         ) : (
@@ -186,45 +172,35 @@ export function SongNode(props: NodeProps) {
                 )}
 
                 {node.track && (node.harmonics || node.harmonicsStatus) && (
-                    <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            {node.harmonicsStatus === "loading" ? (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Spinner className="h-3 w-3" /> reading key / BPM…
-                                </span>
-                            ) : node.harmonics ? (
-                                <>
-                                    {node.harmonics.camelot && (() => {
-                                        const color = camelotColor(node.harmonics.camelot);
-                                        return (
-                                            <Badge
-                                                className="font-mono border-transparent"
-                                                style={color ? { backgroundColor: color.bg, color: color.fg } : undefined}
-                                                title="Camelot code"
-                                            >
-                                                {node.harmonics.camelot}
-                                            </Badge>
-                                        );
-                                    })()}
-                                    {node.harmonics.key && (
-                                        <Badge variant="outline" title="Musical key">{node.harmonics.key}</Badge>
-                                    )}
-                                    {node.harmonics.bpm ? (
-                                        <Badge variant="secondary" title="Tempo">{node.harmonics.bpm} BPM</Badge>
-                                    ) : null}
-                                    {node.harmonics.estimated && (
-                                        <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400" title="Estimated by in-app analysis">~est</Badge>
-                                    )}
-                                </>
-                            ) : node.harmonicsStatus === "none" ? (
-                                <span className="text-xs text-muted-foreground">No key / BPM data</span>
-                            ) : null}
-                        </div>
-                        {node.harmonics?.estimated && (
-                            <p className="text-[10px] leading-tight text-amber-600/90 dark:text-amber-400/90">
-                                ≈ Estimated in-app — likely inaccurate. Treat as a rough guide.
-                            </p>
-                        )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {node.harmonicsStatus === "loading" ? (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Spinner className="h-3 w-3" /> reading key / BPM…
+                            </span>
+                        ) : node.harmonics ? (
+                            <>
+                                {node.harmonics.camelot && (() => {
+                                    const color = camelotColor(node.harmonics.camelot);
+                                    return (
+                                        <Badge
+                                            className="font-mono border-transparent"
+                                            style={color ? { backgroundColor: color.bg, color: color.fg } : undefined}
+                                            title="Camelot code"
+                                        >
+                                            {node.harmonics.camelot}
+                                        </Badge>
+                                    );
+                                })()}
+                                {node.harmonics.key && (
+                                    <Badge variant="outline" title="Musical key">{node.harmonics.key}</Badge>
+                                )}
+                                {node.harmonics.bpm ? (
+                                    <Badge variant="secondary" title="Tempo">{node.harmonics.bpm} BPM</Badge>
+                                ) : null}
+                            </>
+                        ) : node.harmonicsStatus === "none" ? (
+                            <span className="text-xs text-muted-foreground">No key / BPM data</span>
+                        ) : null}
                     </div>
                 )}
 

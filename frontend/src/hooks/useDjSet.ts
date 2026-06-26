@@ -28,7 +28,6 @@ import {
     stripIndexPrefix,
 } from "@/lib/djset";
 import { detectMediaUrl, ResolveMedia, DownloadMedia, ensureYtDlp, IsYtDlpInstalled } from "@/lib/media";
-import { analyzeKey } from "@/lib/key-analysis";
 
 // Raw search result shape returned by the Go SearchSpotify binding.
 interface RawSearchResult {
@@ -353,27 +352,6 @@ export function useDjSet() {
         }
     }, [updateNode, fetchHarmonics]);
 
-    // Estimate key/BPM from the downloaded file (in-app, unreliable — flagged as
-    // estimated). Useful for bootlegs GetSongBPM has no data for.
-    const analyzeNode = useCallback(async (id: string) => {
-        const node = setRef.current.nodes[id];
-        if (!node?.filePath) {
-            toast.error("Process the set first so there's a file to analyze");
-            return;
-        }
-        updateNode(id, { harmonicsStatus: "loading" });
-        try {
-            const result = await analyzeKey(node.filePath);
-            updateNode(id, {
-                harmonics: { key: result.key, camelot: result.camelot, bpm: result.bpm || undefined, estimated: true },
-                harmonicsStatus: "done",
-            });
-        } catch (err) {
-            updateNode(id, { harmonicsStatus: "none" });
-            toast.error(err instanceof Error ? err.message : "Key analysis failed");
-        }
-    }, [updateNode]);
-
     const pickMatch = useCallback((id: string, track: ResolvedTrack) => {
         updateNode(id, { status: "resolved", track, filePath: undefined, error: undefined, harmonics: undefined, harmonicsStatus: undefined });
         void fetchHarmonics(id, track);
@@ -675,7 +653,6 @@ export function useDjSet() {
         resolveNode,
         resolveAll,
         pickMatch,
-        analyzeNode,
         checkFolder,
         processSet,
         stopProcessing,

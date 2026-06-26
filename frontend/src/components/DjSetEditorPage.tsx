@@ -86,7 +86,6 @@ export function DjSetEditorPage() {
                 onSearch: dj.searchTrack,
                 onPick: dj.pickMatch,
                 onPreview,
-                onAnalyze: dj.analyzeNode,
                 previewPlayingId: preview.playingId,
                 previewLoadingId: preview.loadingId,
             };
@@ -120,7 +119,7 @@ export function DjSetEditorPage() {
         }
         setRfNodes(nodes);
         setRfEdges(edges);
-    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, dj.analyzeNode, onPreview, preview.playingId, preview.loadingId, setRfNodes, setRfEdges]);
+    }, [set, positions, processing, dj.updateQuery, dj.resolveNode, dj.removeNode, dj.moveNode, dj.searchTrack, dj.pickMatch, onPreview, preview.playingId, preview.loadingId, setRfNodes, setRfEdges]);
 
     // Fit the view once, after the real nodes have actually been loaded into the
     // canvas (fitting while the canvas is still empty leaves nodes off-screen).
