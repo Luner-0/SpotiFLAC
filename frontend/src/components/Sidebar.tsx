@@ -98,11 +98,22 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     </TooltipContent>
                 </Tooltip>
 
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button variant={currentPage === "dj-set-editor" ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${currentPage === "dj-set-editor" ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`} onClick={() => onPageChange("dj-set-editor")}>
+                            <Disc3 size={20}/>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                        <p>DJ Set Editor</p>
+                    </TooltipContent>
+                </Tooltip>
+
                 <DropdownMenu>
                     <Tooltip delayDuration={0}>
                         <DropdownMenuTrigger asChild>
                             <TooltipTrigger asChild>
-                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager", "dj-set-editor"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager", "dj-set-editor"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
+                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
                                     <ToolCaseIcon size={20}/>
                                 </Button>
                             </TooltipTrigger>
@@ -131,10 +142,6 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         <DropdownMenuItem onClick={() => onPageChange("lyrics-manager")} className="gap-3 cursor-pointer py-2 px-3" {...getAnimatedItemHandlers(lyricsManagerIconRef)}>
                             <FileTextIcon ref={lyricsManagerIconRef} size={16}/>
                             <span>Lyrics Manager</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onPageChange("dj-set-editor")} className="gap-3 cursor-pointer py-2 px-3">
-                            <Disc3 size={16}/>
-                            <span>DJ Set Editor</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

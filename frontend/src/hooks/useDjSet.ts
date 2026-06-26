@@ -54,6 +54,7 @@ const RenameFileTo = (oldPath: string, newName: string) =>
     wails().RenameFileTo(oldPath, newName) as Promise<void>;
 const SelectFolder = (def: string) => wails().SelectFolder(def) as Promise<string>;
 const OpenFolder = (path: string) => wails().OpenFolder(path) as Promise<void>;
+const ForceStopDownloads = () => wails().ForceStopDownloads() as Promise<void>;
 
 function mapResult(r: RawSearchResult): ResolvedTrack {
     return {
@@ -157,6 +158,7 @@ export function useDjSet() {
     const [processing, setProcessing] = useState(false);
     const setRef = useRef(set);
     const processingRef = useRef(false);
+    const stopRef = useRef(false);
 
     useEffect(() => {
         setRef.current = set;
@@ -308,8 +310,20 @@ export function useDjSet() {
         });
     }, [getSetFolder]);
 
-    // The main action: resolve everything, then for each node in order either
+    const stopProcessing = useCallback(async () => {
+        stopRef.current = true;
+        toast.info("Stopping…");
+        try {
+            await ForceStopDownloads();
+        } catch (err) {
+            console.error("Failed to stop downloads:", err);
+        }
+    }, []);
+
+    // The main action: walk the set in order and, for each song slot, either
     // rename the existing file to its correct index or download it numbered.
+    // Position is the slot number (counts every node with a query) so file
+    // numbering matches what the user sees in the editor.
     const processSet = useCallback(async () => {
         if (processingRef.current) return;
         const settings = getSettings();
@@ -319,24 +333,12 @@ export function useDjSet() {
             return;
         }
         processingRef.current = true;
+        stopRef.current = false;
         setProcessing(true);
         try {
             const order = [...setRef.current.order];
 
-            // 1. Resolve every node that has a query but no track yet.
-            const tracks = new Map<string, ResolvedTrack>();
-            for (const id of order) {
-                const node = setRef.current.nodes[id];
-                if (!node) continue;
-                if (node.track) {
-                    tracks.set(id, node.track);
-                } else if (node.query.trim()) {
-                    const resolved = await resolveNode(id);
-                    if (resolved) tracks.set(id, resolved);
-                }
-            }
-
-            // 2. Scan the destination folder once, keyed by index-stripped name.
+            // Scan the destination folder once, keyed by index-stripped name.
             let files: Array<{ name: string; path: string }> = [];
             try {
                 files = (await ListAudioFilesInDir(folder)) ?? [];
@@ -349,17 +351,31 @@ export function useDjSet() {
                 if (!byCore.has(key)) byCore.set(key, f.path);
             }
 
-            // 3. Walk the set in order; position counts only real songs.
             let position = 0;
             let downloaded = 0;
             let renamed = 0;
             let skipped = 0;
             let failed = 0;
+            let stopped = false;
 
             for (const id of order) {
-                const track = tracks.get(id);
-                if (!track) continue; // empty / no-match nodes don't take a slot
+                const node = setRef.current.nodes[id];
+                if (!node || !node.query.trim()) continue; // empty nodes take no slot
+                if (stopRef.current) {
+                    stopped = true;
+                    break;
+                }
                 position += 1;
+
+                // Resolve on demand if the node doesn't already have a track.
+                let track = node.track;
+                if (!track) track = (await resolveNode(id)) ?? undefined;
+                if (!track) {
+                    // resolveNode already set the node to no-match/error.
+                    failed += 1;
+                    continue;
+                }
+
                 const desired = indexedName(track, position);
                 const existing = byCore.get(coreName(track).toLowerCase());
 
@@ -389,6 +405,11 @@ export function useDjSet() {
                 try {
                     logger.info(`downloading ${position}. ${track.name} - ${track.artists}`);
                     const resp = await downloadDjTrack(settings, track, position, folder);
+                    if (resp.cancelled || stopRef.current) {
+                        updateNode(id, { status: track ? "missing" : "queued" });
+                        stopped = true;
+                        break;
+                    }
                     if (resp.success) {
                         updateNode(id, { status: "done", filePath: resp.file || undefined });
                         downloaded += 1;
@@ -409,10 +430,12 @@ export function useDjSet() {
             if (skipped) parts.push(`${skipped} already ordered`);
             if (failed) parts.push(`${failed} failed`);
             const summary = parts.length ? parts.join(", ") : "Nothing to process";
-            if (failed) toast.warning(summary);
+            if (stopped) toast.info(`Stopped — ${summary}`);
+            else if (failed) toast.warning(summary);
             else toast.success(summary);
         } finally {
             processingRef.current = false;
+            stopRef.current = false;
             setProcessing(false);
         }
     }, [getSetFolder, resolveNode, updateNode]);
@@ -461,6 +484,7 @@ export function useDjSet() {
         pickMatch,
         checkFolder,
         processSet,
+        stopProcessing,
         selectFolder,
         openFolder,
         clearSet,

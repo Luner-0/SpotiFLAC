@@ -12,7 +12,7 @@ import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog } from "lucide-react";
+import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
 import { SongNode, type SongNodeData } from "@/components/dj/SongNode";
@@ -26,13 +26,13 @@ export function DjSetEditorPage() {
     const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-    // Position number (per the play sequence) is assigned only to nodes that have
-    // a resolved track — matching exactly how processSet numbers downloads.
+    // Each node with a query gets a sequential slot number — matching exactly how
+    // processSet numbers the downloaded files, so the sequence is visible up front.
     const positions = useMemo(() => {
         const map: Record<string, number> = {};
         let slot = 0;
         for (const id of set.order) {
-            if (set.nodes[id]?.track) {
+            if (set.nodes[id]?.query.trim()) {
                 slot += 1;
                 map[id] = slot;
             } else {
@@ -136,6 +136,11 @@ export function DjSetEditorPage() {
                 </Button>
                 <div className="ml-auto flex items-center gap-3">
                     <span className="text-xs text-muted-foreground">{songCount} song(s)</span>
+                    {processing && (
+                        <Button size="sm" variant="destructive" onClick={dj.stopProcessing}>
+                            <Square className="h-4 w-4" /> Stop
+                        </Button>
+                    )}
                     <Button size="sm" disabled={processing || songCount === 0} onClick={dj.processSet}>
                         {processing ? <Spinner className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         {processing ? "Processing…" : "Process Set"}

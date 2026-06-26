@@ -129,6 +129,15 @@ export function loadDjSet(): DjSet | null {
         if (!parsed || !Array.isArray(parsed.order) || typeof parsed.nodes !== "object") {
             return null;
         }
+        // Reset in-progress statuses that can't survive a restart so a node saved
+        // mid-resolve/download doesn't come back stuck in a spinner state.
+        for (const id of parsed.order) {
+            const node = parsed.nodes[id];
+            if (!node) continue;
+            if (node.status === "resolving" || node.status === "downloading" || node.status === "renaming") {
+                node.status = node.track ? "resolved" : node.query.trim() ? "queued" : "empty";
+            }
+        }
         return parsed;
     } catch (err) {
         console.error("Failed to load DJ set:", err);
