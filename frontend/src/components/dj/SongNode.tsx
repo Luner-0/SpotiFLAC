@@ -163,18 +163,18 @@ export function SongNode(props: NodeProps) {
                                 <Play className="h-4 w-4" />
                             )}
                         </Button>
-                        {node.filePath && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 nodrag"
-                                disabled={busy || node.harmonicsStatus === "loading"}
-                                onClick={() => data.onAnalyze(node.id)}
-                                title="Estimate key / BPM from the file (in-app, may be inaccurate)"
-                            >
-                                <Wand2 className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 nodrag"
+                            disabled={busy || node.harmonicsStatus === "loading"}
+                            onClick={() => data.onAnalyze(node.id)}
+                            title={node.filePath
+                                ? "Estimate key / BPM from the file (in-app, may be inaccurate)"
+                                : "Estimate key / BPM from a preview (in-app, may be inaccurate)"}
+                        >
+                            <Wand2 className="h-4 w-4" />
+                        </Button>
                         {isExternal ? (
                             <Badge variant="secondary" className="shrink-0">{providerLabel(node.source)}</Badge>
                         ) : (

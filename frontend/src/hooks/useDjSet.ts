@@ -27,8 +27,8 @@ import {
     stripExtension,
     stripIndexPrefix,
 } from "@/lib/djset";
-import { detectMediaUrl, ResolveMedia, DownloadMedia, ensureYtDlp, IsYtDlpInstalled } from "@/lib/media";
-import { analyzeKey } from "@/lib/key-analysis";
+import { detectMediaUrl, ResolveMedia, DownloadMedia, ensureYtDlp, IsYtDlpInstalled, GetMediaStreamURL } from "@/lib/media";
+import { analyzeKey, analyzeKeyFromUrl } from "@/lib/key-analysis";
 
 // Raw search result shape returned by the Go SearchSpotify binding.
 interface RawSearchResult {
@@ -66,6 +66,21 @@ const OpenFolder = (path: string) => wails().OpenFolder(path) as Promise<void>;
 const ForceStopDownloads = () => wails().ForceStopDownloads() as Promise<void>;
 const GetSongHarmonics = (artist: string, title: string) =>
     wails().GetSongHarmonics(artist, title) as Promise<{ bpm: number; key: string; camelot: string }>;
+const GetPreviewURL = (trackId: string) => wails().GetPreviewURL(trackId) as Promise<string>;
+
+// Get a playable audio URL for a node that has no downloaded file yet, so it can
+// still be key/BPM-analyzed: external nodes stream via yt-dlp, Spotify nodes use
+// the 30s preview clip.
+async function audioUrlForNode(node: DjSetNode): Promise<string> {
+    if (node.source && node.source !== "spotify") {
+        if (!(await IsYtDlpInstalled())) await ensureYtDlp();
+        return await GetMediaStreamURL(node.track?.external_url || node.query.trim());
+    }
+    if (node.track?.spotify_id) {
+        return await GetPreviewURL(node.track.spotify_id);
+    }
+    return "";
+}
 
 function mapResult(r: RawSearchResult): ResolvedTrack {
     return {
@@ -357,19 +372,29 @@ export function useDjSet() {
     // estimated). Useful for bootlegs GetSongBPM has no data for.
     const analyzeNode = useCallback(async (id: string) => {
         const node = setRef.current.nodes[id];
-        if (!node?.filePath) {
-            toast.error("Process the set first so there's a file to analyze");
+        if (!node?.track) {
+            toast.error("Resolve the song first so there's audio to analyze");
             return;
         }
+        const hadHarmonics = !!node.harmonics;
         updateNode(id, { harmonicsStatus: "loading" });
         try {
-            const result = await analyzeKey(node.filePath);
+            // Prefer the downloaded file (full track) when present; otherwise
+            // stream the audio so any resolved node can still be analyzed.
+            let result;
+            if (node.filePath) {
+                result = await analyzeKey(node.filePath);
+            } else {
+                const url = await audioUrlForNode(node);
+                if (!url) throw new Error("No audio source available to analyze");
+                result = await analyzeKeyFromUrl(url);
+            }
             updateNode(id, {
                 harmonics: { key: result.key, camelot: result.camelot, bpm: result.bpm || undefined, estimated: true },
                 harmonicsStatus: "done",
             });
         } catch (err) {
-            updateNode(id, { harmonicsStatus: "none" });
+            updateNode(id, { harmonicsStatus: hadHarmonics ? "done" : "none" });
             toast.error(err instanceof Error ? err.message : "Key analysis failed");
         }
     }, [updateNode]);

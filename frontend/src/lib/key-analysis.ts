@@ -125,8 +125,24 @@ function estimateBpm(samples: Float32Array, sampleRate: number): number {
     return bestBpm;
 }
 
+// Decode from a remote URL (Spotify preview / yt-dlp stream) — used to analyze a
+// node before it has a downloaded file. Accessed via the runtime global so this
+// file doesn't depend on the binding being regenerated first.
+function DecodeAudioForAnalysisURL(url: string): Promise<{ sample_rate: number; pcm_base64: string }> {
+    return (window as unknown as {
+        go: { main: { App: { DecodeAudioForAnalysisURL: (u: string) => Promise<{ sample_rate: number; pcm_base64: string }> } } };
+    }).go.main.App.DecodeAudioForAnalysisURL(url);
+}
+
 export async function analyzeKey(filePath: string): Promise<KeyAnalysisResult> {
-    const decoded = await DecodeAudioForAnalysis(filePath);
+    return analyzeDecoded(await DecodeAudioForAnalysis(filePath));
+}
+
+export async function analyzeKeyFromUrl(url: string): Promise<KeyAnalysisResult> {
+    return analyzeDecoded(await DecodeAudioForAnalysisURL(url));
+}
+
+async function analyzeDecoded(decoded: { sample_rate: number; pcm_base64: string }): Promise<KeyAnalysisResult> {
     const sampleRate = decoded.sample_rate || 44100;
     const samples = pcm16MonoArrayBufferToFloat32Samples(base64ToArrayBuffer(decoded.pcm_base64));
     if (samples.length === 0) throw new Error("no audio samples");

@@ -153,6 +153,60 @@ func DecodeAudioForAnalysis(filePath string) (*AnalysisDecodeResponse, error) {
 	return resp, nil
 }
 
+// DecodeAudioForAnalysisURL decodes audio straight from a remote URL (e.g. a
+// Spotify 30s preview or a yt-dlp stream URL) so a track can be key/BPM-analyzed
+// before it has been downloaded to disk. Audio is resampled to mono 44.1kHz and
+// capped in length to keep the transfer reasonable.
+func DecodeAudioForAnalysisURL(url string) (*AnalysisDecodeResponse, error) {
+	if url == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+	pcmBase64, err := extractAnalysisPCMBase64URL(url, 90)
+	if err != nil {
+		return nil, err
+	}
+	return &AnalysisDecodeResponse{
+		PCMBase64:  pcmBase64,
+		SampleRate: 44100,
+		Channels:   1,
+	}, nil
+}
+
+func extractAnalysisPCMBase64URL(url string, maxSeconds int) (string, error) {
+	ffmpegPath, err := GetFFmpegPath()
+	if err != nil {
+		return "", err
+	}
+
+	args := []string{
+		"-v", "error",
+		"-t", strconv.Itoa(maxSeconds),
+		"-i", url,
+		"-vn",
+		"-map", "0:a:0",
+		"-ac", "1",
+		"-ar", "44100",
+		"-f", "s16le",
+		"-acodec", "pcm_s16le",
+		"pipe:1",
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := exec.Command(ffmpegPath, args...)
+	setHideWindow(cmd)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("ffmpeg analysis decode failed: %w - %s", err, strings.TrimSpace(stderr.String()))
+	}
+	if stdout.Len() == 0 {
+		return "", fmt.Errorf("ffmpeg analysis decode returned empty PCM output")
+	}
+	return base64.StdEncoding.EncodeToString(stdout.Bytes()), nil
+}
+
 func extractAnalysisPCMBase64(filePath string) (string, error) {
 	ffmpegPath, err := GetFFmpegPath()
 	if err != nil {
