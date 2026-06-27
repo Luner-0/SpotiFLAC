@@ -1050,6 +1050,29 @@ func (a *App) ExportFailedDownloads() (string, error) {
 	return fmt.Sprintf("Successfully exported %d failed downloads to %s", count, path), nil
 }
 
+// ExportPlaylistM3U writes an .m3u8 playlist (built on the frontend) into the
+// given folder, named after the set. Returns the written file path.
+func (a *App) ExportPlaylistM3U(folder, filename, content string) (string, error) {
+	if strings.TrimSpace(folder) == "" {
+		return "", fmt.Errorf("no destination folder")
+	}
+	if strings.TrimSpace(content) == "" {
+		return "", fmt.Errorf("nothing to export")
+	}
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		return "", err
+	}
+	name := backend.SanitizeFilename(filename)
+	if strings.TrimSpace(name) == "" {
+		name = "playlist"
+	}
+	path := filepath.Join(folder, name+".m3u8")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("failed to write playlist: %v", err)
+	}
+	return path, nil
+}
+
 func (a *App) CheckAPIStatus(apiType string, apiURL string) bool {
 	isOnline, err := runWithTimeout(checkOperationTimeout, func() (bool, error) {
 		switch apiType {

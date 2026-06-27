@@ -66,6 +66,8 @@ const OpenFolder = (path: string) => wails().OpenFolder(path) as Promise<void>;
 const ForceStopDownloads = () => wails().ForceStopDownloads() as Promise<void>;
 const GetSongHarmonics = (artist: string, title: string) =>
     wails().GetSongHarmonics(artist, title) as Promise<{ bpm: number; key: string; camelot: string }>;
+const ExportPlaylistM3U = (folder: string, filename: string, content: string) =>
+    wails().ExportPlaylistM3U(folder, filename, content) as Promise<string>;
 
 function mapResult(r: RawSearchResult): ResolvedTrack {
     return {
@@ -648,6 +650,40 @@ export function useDjSet() {
         }
     }, [setOutputFolder]);
 
+    // Export the set as an .m3u8 playlist (in play order) into the set folder, so
+    // it imports straight into rekordbox/Serato alongside the numbered files.
+    const exportPlaylist = useCallback(async () => {
+        const folder = getSetFolder();
+        if (!folder) {
+            toast.error("Set a download folder first");
+            return;
+        }
+        const current = setRef.current;
+        const lines = ["#EXTM3U"];
+        let count = 0;
+        for (const id of current.order) {
+            const node = current.nodes[id];
+            if (!node?.filePath || !node.track) continue;
+            const dur = node.track.duration_ms ? Math.round(node.track.duration_ms / 1000) : -1;
+            const artist = node.track.artists?.trim() || "";
+            const title = node.track.name?.trim() || basename(node.filePath);
+            const label = artist ? `${artist} - ${title}` : title;
+            lines.push(`#EXTINF:${dur},${label}`);
+            lines.push(node.filePath);
+            count += 1;
+        }
+        if (count === 0) {
+            toast.error("No downloaded files to export — process the set first (or Check Folder)");
+            return;
+        }
+        try {
+            const path = await ExportPlaylistM3U(folder, current.name || "playlist", lines.join("\n") + "\n");
+            toast.success(`Exported ${count}-track playlist → ${path}`);
+        } catch (err) {
+            toast.error(`Failed to export playlist: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }, [getSetFolder]);
+
     const openFolder = useCallback(async () => {
         const folder = getSetFolder();
         if (!folder) {
@@ -836,6 +872,7 @@ export function useDjSet() {
         stopProcessing,
         selectFolder,
         openFolder,
+        exportPlaylist,
         clearSet,
     };
 }

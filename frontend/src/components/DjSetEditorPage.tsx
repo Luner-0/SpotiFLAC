@@ -21,7 +21,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X, ListMusic, LayoutGrid } from "lucide-react";
+import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X, ListMusic, LayoutGrid, FileDown } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
 import { useDjPreview } from "@/hooks/useDjPreview";
@@ -239,6 +239,9 @@ export function DjSetEditorPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={dj.importFromFolder} className="gap-2 cursor-pointer">
                             <FolderInput className="h-4 w-4" /> Import from folder…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={dj.exportPlaylist} className="gap-2 cursor-pointer">
+                            <FileDown className="h-4 w-4" /> Export playlist (.m3u8)
                         </DropdownMenuItem>
                         {library.length > 0 && <DropdownMenuSeparator />}
                         {library.length > 0 && <DropdownMenuLabel>Saved sets</DropdownMenuLabel>}
