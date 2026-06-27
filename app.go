@@ -2175,6 +2175,14 @@ func (a *App) DecodeAudioForAnalysis(filePath string) (*backend.AnalysisDecodeRe
 	return backend.DecodeAudioForAnalysis(filePath)
 }
 
+func (a *App) DecodeAudioForAnalysisURL(url string) (*backend.AnalysisDecodeResponse, error) {
+	if url == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+
+	return backend.DecodeAudioForAnalysisURL(url)
+}
+
 func (a *App) RenameFileTo(oldPath, newName string) error {
 	dir := filepath.Dir(oldPath)
 	ext := filepath.Ext(oldPath)

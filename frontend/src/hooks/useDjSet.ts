@@ -28,7 +28,8 @@ import {
     stripExtension,
     stripIndexPrefix,
 } from "@/lib/djset";
-import { detectMediaUrl, detectPlaylistUrl, ResolveMedia, ResolvePlaylist, DownloadMedia, ensureYtDlp, IsYtDlpInstalled, providerLabel } from "@/lib/media";
+import { detectMediaUrl, detectPlaylistUrl, ResolveMedia, ResolvePlaylist, DownloadMedia, ensureYtDlp, IsYtDlpInstalled, GetMediaStreamURL, providerLabel } from "@/lib/media";
+import { analyzeKey, analyzeKeyFromUrl } from "@/lib/key-analysis";
 
 // Raw search result shape returned by the Go SearchSpotify binding.
 interface RawSearchResult {
@@ -68,6 +69,21 @@ const GetSongHarmonics = (artist: string, title: string) =>
     wails().GetSongHarmonics(artist, title) as Promise<{ bpm: number; key: string; camelot: string }>;
 const ExportPlaylistM3U = (folder: string, filename: string, content: string) =>
     wails().ExportPlaylistM3U(folder, filename, content) as Promise<string>;
+const GetPreviewURL = (trackId: string) => wails().GetPreviewURL(trackId) as Promise<string>;
+
+// Get a playable audio URL for a node that has no downloaded file yet, so it can
+// still be key/BPM-analyzed: external nodes stream via yt-dlp, Spotify nodes use
+// the 30s preview clip.
+async function audioUrlForNode(node: DjSetNode): Promise<string> {
+    if (node.source && node.source !== "spotify") {
+        if (!(await IsYtDlpInstalled())) await ensureYtDlp();
+        return await GetMediaStreamURL(node.track?.external_url || node.query.trim());
+    }
+    if (node.track?.spotify_id) {
+        return await GetPreviewURL(node.track.spotify_id);
+    }
+    return "";
+}
 
 function mapResult(r: RawSearchResult): ResolvedTrack {
     return {
@@ -447,6 +463,36 @@ export function useDjSet() {
             harmonics: hasAny ? { camelot, key: keyForCamelot(camelot), bpm, manual: true } : undefined,
             harmonicsStatus: hasAny ? "done" : "none",
         });
+    }, [updateNode]);
+
+    // Estimate key/BPM in-app (DSP, unreliable — flagged as estimated). Uses the
+    // downloaded file when present; otherwise streams the audio so any resolved
+    // node can still be analyzed. Won't overwrite manual edits unless re-run.
+    const analyzeNode = useCallback(async (id: string) => {
+        const node = setRef.current.nodes[id];
+        if (!node?.track) {
+            toast.error("Resolve the song first so there's audio to analyze");
+            return;
+        }
+        const hadHarmonics = !!node.harmonics;
+        updateNode(id, { harmonicsStatus: "loading" });
+        try {
+            let result;
+            if (node.filePath) {
+                result = await analyzeKey(node.filePath);
+            } else {
+                const url = await audioUrlForNode(node);
+                if (!url) throw new Error("No audio source available to analyze");
+                result = await analyzeKeyFromUrl(url);
+            }
+            updateNode(id, {
+                harmonics: { key: result.key, camelot: result.camelot, bpm: result.bpm || undefined, estimated: true },
+                harmonicsStatus: "done",
+            });
+        } catch (err) {
+            updateNode(id, { harmonicsStatus: hadHarmonics ? "done" : "none" });
+            toast.error(err instanceof Error ? err.message : "Key analysis failed");
+        }
     }, [updateNode]);
 
     const resolveAll = useCallback(async () => {
@@ -867,6 +913,7 @@ export function useDjSet() {
         resolveAll,
         pickMatch,
         setHarmonics,
+        analyzeNode,
         checkFolder,
         processSet,
         stopProcessing,

@@ -23,6 +23,7 @@ export interface SongHarmonics {
     key?: string; // musical key text, e.g. "Gm"
     camelot?: string; // Camelot code, e.g. "6A"
     manual?: boolean; // true when the user typed/corrected the values themselves
+    estimated?: boolean; // true when produced by the in-app DSP estimator
 }
 
 // The 24 keys laid out on the Camelot wheel, used by the manual key editor. The
