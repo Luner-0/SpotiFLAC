@@ -2183,6 +2183,22 @@ func (a *App) DecodeAudioForAnalysisURL(url string) (*backend.AnalysisDecodeResp
 	return backend.DecodeAudioForAnalysisURL(url)
 }
 
+func (a *App) AnalyzeAudioFile(filePath string) (*backend.AudioAnalysis, error) {
+	if filePath == "" {
+		return nil, fmt.Errorf("file path is required")
+	}
+
+	return backend.AnalyzeAudioFile(filePath)
+}
+
+func (a *App) AnalyzeAudioURL(url string) (*backend.AudioAnalysis, error) {
+	if url == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+
+	return backend.AnalyzeAudioURL(url)
+}
+
 func (a *App) RenameFileTo(oldPath, newName string) error {
 	dir := filepath.Dir(oldPath)
 	ext := filepath.Ext(oldPath)
