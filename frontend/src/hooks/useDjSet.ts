@@ -196,6 +196,82 @@ export function useDjSet() {
         });
     }, []);
 
+    // Declutter only: leave nodes that already keep the minimum distance exactly
+    // where the user put them, and just push apart the ones that are too close /
+    // overlapping until they clear the minimum gap.
+    const autoArrange = useCallback(() => {
+        setSet((prev) => {
+            const ids = prev.order;
+            if (ids.length < 2) return prev;
+            const MIN_DX = 360; // min horizontal centre distance (node is ~320 wide)
+            const MIN_DY = 240; // min vertical centre distance
+
+            const pos = new Map<string, { x: number; y: number }>();
+            for (const id of ids) pos.set(id, { x: prev.nodes[id]?.x ?? 0, y: prev.nodes[id]?.y ?? 0 });
+
+            const tooClose = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+                Math.abs(a.x - b.x) < MIN_DX && Math.abs(a.y - b.y) < MIN_DY;
+
+            // Movable = nodes that currently violate the min distance with some other
+            // node. Nodes already clear of everything stay put.
+            const movable = new Set<string>();
+            for (let i = 0; i < ids.length; i += 1) {
+                for (let j = i + 1; j < ids.length; j += 1) {
+                    if (tooClose(pos.get(ids[i])!, pos.get(ids[j])!)) {
+                        movable.add(ids[i]);
+                        movable.add(ids[j]);
+                    }
+                }
+            }
+            if (movable.size === 0) return prev; // everything already spaced enough
+
+            // Iteratively separate overlapping pairs along the axis of least overlap.
+            // Fixed (well-spaced) nodes never move; crowded pairs split the push.
+            for (let iter = 0; iter < 120; iter += 1) {
+                let moved = false;
+                for (let i = 0; i < ids.length; i += 1) {
+                    for (let j = i + 1; j < ids.length; j += 1) {
+                        const ida = ids[i];
+                        const idb = ids[j];
+                        const a = pos.get(ida)!;
+                        const b = pos.get(idb)!;
+                        if (!tooClose(a, b)) continue;
+                        const dx = a.x - b.x;
+                        const dy = a.y - b.y;
+                        const penX = MIN_DX - Math.abs(dx);
+                        const penY = MIN_DY - Math.abs(dy);
+                        let sx = 0;
+                        let sy = 0;
+                        if (penX < penY) sx = (dx >= 0 ? 1 : -1) * penX;
+                        else sy = (dy >= 0 ? 1 : -1) * penY;
+                        const aMov = movable.has(ida);
+                        const bMov = movable.has(idb);
+                        if (aMov && bMov) {
+                            a.x += sx / 2; a.y += sy / 2;
+                            b.x -= sx / 2; b.y -= sy / 2;
+                        } else if (aMov) {
+                            a.x += sx; a.y += sy;
+                        } else if (bMov) {
+                            b.x -= sx; b.y -= sy;
+                        } else {
+                            continue;
+                        }
+                        moved = true;
+                    }
+                }
+                if (!moved) break;
+            }
+
+            const nodes = { ...prev.nodes };
+            for (const id of movable) {
+                const p = pos.get(id)!;
+                const node = nodes[id];
+                if (node) nodes[id] = { ...node, x: Math.round(p.x), y: Math.round(p.y) };
+            }
+            return { ...prev, nodes };
+        });
+    }, []);
+
     // Persist canvas positions after a drag so the manual layout survives edits.
     const persistPositions = useCallback((positions: Array<{ id: string; x: number; y: number }>) => {
         setSet((prev) => {
@@ -461,21 +537,23 @@ export function useDjSet() {
                 await ensureYtDlp();
             }
 
-            let position = 0;
             let downloaded = 0;
             let renamed = 0;
             let skipped = 0;
             let failed = 0;
             let stopped = false;
 
-            for (const id of order) {
+            for (let idx = 0; idx < order.length; idx += 1) {
+                const id = order[idx];
                 const node = setRef.current.nodes[id];
-                if (!node || !node.query.trim()) continue; // empty nodes take no slot
+                if (!node || !node.query.trim()) continue; // empty nodes produce no file
                 if (stopRef.current) {
                     stopped = true;
                     break;
                 }
-                position += 1;
+                // Slot number = position in the order (matches the on-screen badge),
+                // so files stay aligned with the planned sequence.
+                const position = idx + 1;
 
                 // Resolve on demand if the node doesn't already have a track.
                 let track = node.track;
@@ -667,24 +745,40 @@ export function useDjSet() {
             const base = createEmptySet(getSettings().downloadPath);
             const order: string[] = [];
             const nodes: Record<string, DjSetNode> = {};
+            let drmCount = 0;
             entries.forEach((e, i) => {
-                const node = createNode(e.url);
-                node.x = 0;
-                node.y = i * NODE_LAYOUT_GAP;
-                node.status = "resolved";
-                node.source = provider;
-                node.track = {
-                    spotify_id: "",
-                    name: e.title || e.url,
-                    artists: e.uploader || providerLabel(provider),
-                    album_name: "",
-                    release_date: "",
-                    images: e.thumbnail || "",
-                    duration_ms: Math.round((e.duration || 0) * 1000),
-                    external_url: e.url,
-                };
-                order.push(node.id);
-                nodes[node.id] = node;
+                if (e.available) {
+                    const node = createNode(e.url);
+                    node.x = 0;
+                    node.y = i * NODE_LAYOUT_GAP;
+                    node.status = "resolved";
+                    node.source = provider;
+                    node.track = {
+                        spotify_id: "",
+                        name: e.title || e.url,
+                        artists: e.uploader || providerLabel(provider),
+                        album_name: "",
+                        release_date: "",
+                        images: e.thumbnail || "",
+                        duration_ms: Math.round((e.duration || 0) * 1000),
+                        external_url: e.url,
+                    };
+                    order.push(node.id);
+                    nodes[node.id] = node;
+                } else {
+                    // DRM / unextractable on the source — keep the slot as a
+                    // searchable node (title prefilled) so the user can resolve it
+                    // from another source (Spotify → Tidal/Qobuz/Amazon) instead.
+                    drmCount += 1;
+                    const query = e.title?.trim() || e.url;
+                    const node = createNode(query);
+                    node.x = 0;
+                    node.y = i * NODE_LAYOUT_GAP;
+                    node.status = "queued";
+                    node.error = "DRM-protected on the source — Resolve to find another source";
+                    order.push(node.id);
+                    nodes[node.id] = node;
+                }
             });
             const imported: DjSet = {
                 ...base,
@@ -698,7 +792,11 @@ export function useDjSet() {
                 const t = nodes[id].track;
                 if (t) void fetchHarmonics(id, t);
             }
-            toast.success(`Imported ${entries.length} track(s) from "${imported.name}"`);
+            if (drmCount > 0) {
+                toast.success(`Imported ${entries.length} track(s) — ${drmCount} DRM-protected, added as searchable nodes (Resolve to source elsewhere)`);
+            } else {
+                toast.success(`Imported ${entries.length} track(s) from "${imported.name}"`);
+            }
         } catch (err) {
             toast.error(`Failed to import playlist: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -724,6 +822,7 @@ export function useDjSet() {
         reorder,
         moveNode,
         persistPositions,
+        autoArrange,
         setName,
         setOutputFolder,
         getSetFolder,

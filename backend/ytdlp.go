@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -197,13 +199,14 @@ func ResolveMedia(url string) (*ExternalMedia, error) {
 	return &media, nil
 }
 
-// PlaylistEntry is one track in a resolved playlist (flat metadata only).
+// PlaylistEntry is one track in a resolved playlist.
 type PlaylistEntry struct {
 	Title     string  `json:"title"`
 	Uploader  string  `json:"uploader"`
 	Duration  float64 `json:"duration"`
 	Thumbnail string  `json:"thumbnail"`
-	URL       string  `json:"url"` // resolvable track URL
+	URL       string  `json:"url"`       // resolvable track URL
+	Available bool    `json:"available"` // false = DRM/unextractable; kept as a placeholder slot
 }
 
 // ExternalPlaylist is a SoundCloud/YouTube playlist resolved into ordered entries.
@@ -212,25 +215,131 @@ type ExternalPlaylist struct {
 	Entries []PlaylistEntry `json:"entries"`
 }
 
-// flatPlaylistJSON mirrors the shape yt-dlp emits with --flat-playlist.
+// playlistEntryJSON is one line of yt-dlp's `-j` (line-delimited) output: a full
+// per-track info dict (so titles/permalinks are real), plus the playlist name it
+// belongs to.
+type playlistEntryJSON struct {
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	Uploader      string  `json:"uploader"`
+	Duration      float64 `json:"duration"`
+	URL           string  `json:"url"`
+	WebpageURL    string  `json:"webpage_url"`
+	Thumbnail     string  `json:"thumbnail"`
+	PlaylistTitle string  `json:"playlist_title"`
+	Playlist      string  `json:"playlist"`
+	Thumbnails    []struct {
+		URL string `json:"url"`
+	} `json:"thumbnails"`
+}
+
+// flatPlaylistJSON is the lightweight `--flat-playlist` listing: it always returns
+// the complete, ordered set of tracks (including DRM-protected ones yt-dlp cannot
+// fully extract), which we use as the authoritative track order.
 type flatPlaylistJSON struct {
 	Title   string `json:"title"`
 	Entries []struct {
-		Title      string  `json:"title"`
-		Uploader   string  `json:"uploader"`
-		Duration   float64 `json:"duration"`
-		URL        string  `json:"url"`
-		WebpageURL string  `json:"webpage_url"`
-		Thumbnail  string  `json:"thumbnail"`
-		Thumbnails []struct {
-			URL string `json:"url"`
-		} `json:"thumbnails"`
+		ID         string `json:"id"`
+		Title      string `json:"title"`
+		URL        string `json:"url"`
+		WebpageURL string `json:"webpage_url"`
 	} `json:"entries"`
 }
 
-// ResolvePlaylist reads a playlist URL and returns its tracks in order. It uses
-// --flat-playlist so it stays fast even for long sets (per-track metadata is
-// fetched later when each node is resolved/processed).
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return s
+}
+
+// humanizeTrackSlug turns a track permalink into a readable title as a last resort
+// (e.g. ".../lenzman-redeyes-dizzy-heights" -> "lenzman redeyes dizzy heights").
+// Returns "" for api/id-only URLs that wouldn't produce anything meaningful.
+func humanizeTrackSlug(rawURL string) string {
+	s := rawURL
+	if i := strings.IndexAny(s, "?#"); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.TrimRight(s, "/")
+	if i := strings.LastIndexByte(s, '/'); i >= 0 {
+		s = s[i+1:]
+	}
+	if s == "" || s == "tracks" {
+		return ""
+	}
+	if _, err := strconv.Atoi(s); err == nil {
+		return "" // bare numeric id
+	}
+	s = strings.ReplaceAll(s, "-", " ")
+	s = strings.ReplaceAll(s, "_", " ")
+	return strings.TrimSpace(s)
+}
+
+func pickThumb(e playlistEntryJSON) string {
+	if t := strings.TrimSpace(e.Thumbnail); t != "" {
+		return t
+	}
+	if len(e.Thumbnails) > 0 {
+		return strings.TrimSpace(e.Thumbnails[len(e.Thumbnails)-1].URL)
+	}
+	return ""
+}
+
+// ytDlpFlatPlaylist lists every track in a playlist (fast, never aborts on DRM).
+func ytDlpFlatPlaylist(bin, url string) (*flatPlaylistJSON, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "-J", "--flat-playlist", "--skip-download", "--no-warnings", url)
+	setHideWindow(cmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("%s", firstLine(stderr.String()))
+	}
+	var raw flatPlaylistJSON
+	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
+		return nil, err
+	}
+	return &raw, nil
+}
+
+// ytDlpFullPlaylist returns full per-track metadata for the extractable tracks, in
+// order. DRM/unavailable tracks are skipped (--ignore-errors) and yt-dlp may exit
+// non-zero, so we parse whatever was produced regardless of exit code.
+func ytDlpFullPlaylist(bin, url string) []playlistEntryJSON {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "-j", "--yes-playlist", "--ignore-errors", "--skip-download", "--no-warnings", url)
+	setHideWindow(cmd)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	_ = cmd.Run() // best effort
+
+	var list []playlistEntryJSON
+	scanner := bufio.NewScanner(bytes.NewReader(stdout.Bytes()))
+	scanner.Buffer(make([]byte, 0, 1024*1024), 16*1024*1024) // entries can be large
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || line[0] != '{' {
+			continue
+		}
+		var e playlistEntryJSON
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			continue
+		}
+		list = append(list, e)
+	}
+	return list
+}
+
+// ResolvePlaylist reads a playlist URL and returns ALL its tracks in order. It
+// merges two passes: a flat listing (complete + ordered, including DRM tracks) and
+// a full extraction (real titles/permalinks for the tracks yt-dlp can read). DRM/
+// unavailable tracks are kept as placeholder entries (Available=false) with a
+// best-effort title so the set order is never silently broken.
 func ResolvePlaylist(url string) (*ExternalPlaylist, error) {
 	if strings.TrimSpace(url) == "" {
 		return nil, fmt.Errorf("url is required")
@@ -243,44 +352,76 @@ func ResolvePlaylist(url string) (*ExternalPlaylist, error) {
 		return nil, fmt.Errorf("yt-dlp is not installed")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "-J", "--flat-playlist", "--skip-download", "--no-warnings", url)
-	setHideWindow(cmd)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("yt-dlp could not read that playlist: %s", strings.TrimSpace(stderr.String()))
+	flat, flatErr := ytDlpFlatPlaylist(bin, url)
+	full := ytDlpFullPlaylist(bin, url)
+
+	fullByID := make(map[string]playlistEntryJSON, len(full))
+	for _, e := range full {
+		if id := strings.TrimSpace(e.ID); id != "" {
+			fullByID[id] = e
+		}
 	}
 
-	var raw flatPlaylistJSON
-	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
-		return nil, fmt.Errorf("failed to parse playlist info: %w", err)
-	}
+	out := &ExternalPlaylist{}
 
-	out := &ExternalPlaylist{Title: strings.TrimSpace(raw.Title)}
-	for _, e := range raw.Entries {
-		link := strings.TrimSpace(e.WebpageURL)
+	appendFull := func(meta playlistEntryJSON) {
+		link := strings.TrimSpace(meta.WebpageURL)
 		if link == "" {
-			link = strings.TrimSpace(e.URL)
+			link = strings.TrimSpace(meta.URL)
 		}
 		if link == "" {
-			continue
+			return
 		}
-		thumb := strings.TrimSpace(e.Thumbnail)
-		if thumb == "" && len(e.Thumbnails) > 0 {
-			thumb = strings.TrimSpace(e.Thumbnails[len(e.Thumbnails)-1].URL)
+		if out.Title == "" {
+			if t := strings.TrimSpace(meta.PlaylistTitle); t != "" {
+				out.Title = t
+			} else {
+				out.Title = strings.TrimSpace(meta.Playlist)
+			}
 		}
 		out.Entries = append(out.Entries, PlaylistEntry{
-			Title:     strings.TrimSpace(e.Title),
-			Uploader:  strings.TrimSpace(e.Uploader),
-			Duration:  e.Duration,
-			Thumbnail: thumb,
+			Title:     strings.TrimSpace(meta.Title),
+			Uploader:  strings.TrimSpace(meta.Uploader),
+			Duration:  meta.Duration,
+			Thumbnail: pickThumb(meta),
 			URL:       link,
+			Available: true,
 		})
 	}
+
+	if flat != nil && len(flat.Entries) > 0 {
+		out.Title = strings.TrimSpace(flat.Title)
+		for _, f := range flat.Entries {
+			if meta, ok := fullByID[strings.TrimSpace(f.ID)]; ok {
+				appendFull(meta)
+				continue
+			}
+			// DRM / unextractable — keep the slot as a searchable placeholder.
+			link := strings.TrimSpace(f.WebpageURL)
+			if link == "" {
+				link = strings.TrimSpace(f.URL)
+			}
+			title := strings.TrimSpace(f.Title)
+			if title == "" {
+				title = humanizeTrackSlug(link)
+			}
+			out.Entries = append(out.Entries, PlaylistEntry{
+				Title:     title,
+				URL:       link,
+				Available: false,
+			})
+		}
+	} else {
+		// Flat listing failed — fall back to whatever we fully extracted (in order).
+		for _, meta := range full {
+			appendFull(meta)
+		}
+	}
+
 	if len(out.Entries) == 0 {
+		if flatErr != nil {
+			return nil, fmt.Errorf("yt-dlp could not read that playlist: %s", flatErr.Error())
+		}
 		return nil, fmt.Errorf("no tracks found in that playlist")
 	}
 	return out, nil

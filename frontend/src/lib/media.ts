@@ -59,6 +59,7 @@ export interface ExternalPlaylistEntry {
     duration: number;
     thumbnail: string;
     url: string;
+    available: boolean; // false = DRM/unextractable; imported as a searchable placeholder
 }
 
 export interface ExternalPlaylist {

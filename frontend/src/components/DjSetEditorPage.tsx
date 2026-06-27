@@ -21,7 +21,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X, ListMusic } from "lucide-react";
+import { Plus, ListChecks, FolderSearch, Play, Trash2, FolderOpen, FolderCog, Square, Library, ChevronDown, Save, FilePlus2, FolderInput, X, ListMusic, LayoutGrid } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useDjSet } from "@/hooks/useDjSet";
 import { useDjPreview } from "@/hooks/useDjPreview";
@@ -55,19 +55,14 @@ export function DjSetEditorPage() {
         return () => observer.disconnect();
     }, []);
 
-    // Each node with a query gets a sequential slot number — matching exactly how
-    // processSet numbers the downloaded files, so the sequence is visible up front.
+    // Every node gets its 1-based slot number from its position in the order
+    // (including empty ones) — matching exactly how processSet numbers the
+    // downloaded files, so the sequence is visible up front.
     const positions = useMemo(() => {
         const map: Record<string, number> = {};
-        let slot = 0;
-        for (const id of set.order) {
-            if (set.nodes[id]?.query.trim()) {
-                slot += 1;
-                map[id] = slot;
-            } else {
-                map[id] = 0;
-            }
-        }
+        set.order.forEach((id, i) => {
+            map[id] = i + 1;
+        });
         return map;
     }, [set]);
 
@@ -150,7 +145,13 @@ export function DjSetEditorPage() {
         dj.persistPositions(rfNodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y })));
     }, [rfNodes, dj]);
 
-    const songCount = Object.values(positions).filter((p) => p > 0).length;
+    // Tidy the whole canvas into a serpentine grid, then fit it into view.
+    const onAutoArrange = useCallback(() => {
+        dj.autoArrange();
+        setTimeout(() => instanceRef.current?.fitView({ maxZoom: 1, duration: 350 }), 60);
+    }, [dj]);
+
+    const songCount = countSongs(set);
 
     // Paste a SoundCloud / YouTube playlist link to build a set in playlist order.
     const [playlistUrl, setPlaylistUrl] = useState("");
@@ -267,6 +268,9 @@ export function DjSetEditorPage() {
                 </Button>
                 <Button variant="outline" size="sm" disabled={processing} onClick={dj.checkFolder}>
                     <FolderSearch className="h-4 w-4" /> Check Folder
+                </Button>
+                <Button variant="outline" size="sm" disabled={processing || set.order.length === 0} onClick={onAutoArrange}>
+                    <LayoutGrid className="h-4 w-4" /> Auto Arrange
                 </Button>
                 <Button variant="outline" size="sm" disabled={processing} onClick={dj.clearSet}>
                     <Trash2 className="h-4 w-4" /> Clear
