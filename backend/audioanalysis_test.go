@@ -109,13 +109,19 @@ func readEvalCSV(path string) ([]evalRow, error) {
 		if len(parts) < 2 {
 			continue
 		}
-		p := strings.TrimSpace(parts[0])
-		if strings.EqualFold(p, "filepath") || strings.EqualFold(p, "path") {
-			continue // header
-		}
-		row := evalRow{path: p, key: strings.TrimSpace(parts[1])}
+		// Parse from the right so a comma inside the file path is preserved:
+		// last field = bpm, second-last = key, everything before = path.
+		var row evalRow
 		if len(parts) >= 3 {
-			row.bpm, _ = strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
+			row.bpm, _ = strconv.ParseFloat(strings.TrimSpace(parts[len(parts)-1]), 64)
+			row.key = strings.TrimSpace(parts[len(parts)-2])
+			row.path = strings.TrimSpace(strings.Join(parts[:len(parts)-2], ","))
+		} else {
+			row.path = strings.TrimSpace(parts[0])
+			row.key = strings.TrimSpace(parts[1])
+		}
+		if strings.EqualFold(row.path, "filepath") || strings.EqualFold(row.path, "path") {
+			continue // header
 		}
 		rows = append(rows, row)
 	}

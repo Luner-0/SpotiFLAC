@@ -34,9 +34,10 @@ const (
 	noteNamesSharp     = "C C# D D# E F F# G G# A A# B"
 )
 
-// Krumhansl-Kessler key profiles (tonic-relative). Easy to swap during tuning.
-var keyProfileMajor = [12]float64{6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88}
-var keyProfileMinor = [12]float64{6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17}
+// Temperley (2001) key profiles (tonic-relative). These discriminate relative /
+// dominant keys better than Krumhansl-Kessler for audio chroma. Easy to swap.
+var keyProfileMajor = [12]float64{0.748, 0.060, 0.488, 0.082, 0.670, 0.460, 0.096, 0.715, 0.104, 0.366, 0.057, 0.400}
+var keyProfileMinor = [12]float64{0.712, 0.084, 0.474, 0.618, 0.049, 0.460, 0.105, 0.747, 0.404, 0.067, 0.133, 0.330}
 
 // AnalyzeAudioFile decodes a local file and estimates its key/BPM.
 func AnalyzeAudioFile(path string) (*AudioAnalysis, error) {
@@ -232,7 +233,7 @@ func computeChroma(samples []float64, sr int) []float64 {
 
 	// Pass 2: harmonic-summed chroma with tuning correction.
 	chroma := make([]float64, 12)
-	harmonicWeights := []float64{1.0, 0.5, 0.33, 0.25, 0.2}
+	harmonicWeights := []float64{1.0, 0.5, 0.33}
 	for start := 0; start+chromaFFT <= len(samples); start += chromaHop {
 		loadFrame(samples, start, window, re, im)
 		fft(re, im)
